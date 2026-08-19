@@ -1,53 +1,7 @@
-import crypto from 'crypto';
 import { ethers } from 'ethers';
 import { prisma } from './prisma';
-import { RPC_URL } from './constants';
-
-const ENCRYPTION_KEY = process.env.WALLET_ENCRYPTION_KEY!;
-const ALGORITHM = 'aes-256-gcm';
-
-function getKey(): Buffer {
-  if (ENCRYPTION_KEY.length === 64) {
-    return Buffer.from(ENCRYPTION_KEY, 'hex');
-  }
-  return Buffer.from(ENCRYPTION_KEY, 'base64');
-}
-
-function encrypt(text: string): string {
-  const key = getKey();
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-  const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
-  const authTag = cipher.getAuthTag();
-  return Buffer.concat([iv, authTag, encrypted]).toString('hex');
-}
-
-function decrypt(encryptedHex: string): string {
-  const key = getKey();
-  const data = Buffer.from(encryptedHex, 'hex');
-  const iv = data.subarray(0, 16);
-  const authTag = data.subarray(16, 32);
-  const encrypted = data.subarray(32);
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
-  decipher.setAuthTag(authTag);
-  return decipher.update(encrypted) + decipher.final('utf8');
-}
-
-export function encryptPrivateKey(privateKey: string): string {
-  return encrypt(privateKey);
-}
-
-export function decryptPrivateKey(encrypted: string): string {
-  return decrypt(encrypted);
-}
-
-export function encryptPhrase(phrase: string): string {
-  return encrypt(phrase);
-}
-
-export function decryptPhrase(encrypted: string): string {
-  return decrypt(encrypted);
-}
+import { encrypt, decrypt } from './crypto';
+import { RPC_URL } from './chain';
 
 export async function createWallet(userId: number): Promise<{ address: string; privateKey: string; mnemonic?: string }> {
   const hdWallet = ethers.Wallet.createRandom();
@@ -56,8 +10,8 @@ export async function createWallet(userId: number): Promise<{ address: string; p
   const privateKey = wallet.privateKey;
   const mnemonic = hdWallet.mnemonic?.phrase;
 
-  const encryptedKey = encryptPrivateKey(privateKey);
-  const encryptedPhrase = mnemonic ? encryptPhrase(mnemonic) : null;
+  const encryptedKey = encrypt(privateKey);
+  const encryptedPhrase = mnemonic ? encrypt(mnemonic) : null;
 
   await prisma.wallet.create({
     data: {
@@ -101,8 +55,8 @@ export async function importWallet(userId: number, privateKeyOrPhrase: string): 
 
   const address = wallet.address;
   const privateKey = wallet.privateKey;
-  const encryptedKey = encryptPrivateKey(privateKey);
-  const encryptedPhrase = mnemonic ? encryptPhrase(mnemonic) : null;
+  const encryptedKey = encrypt(privateKey);
+  const encryptedPhrase = mnemonic ? encrypt(mnemonic) : null;
 
   await prisma.wallet.create({
     data: {
@@ -119,6 +73,18 @@ export async function importWallet(userId: number, privateKeyOrPhrase: string): 
 export async function getWalletAddress(userId: number): Promise<string | null> {
   const wallet = await prisma.wallet.findFirst({ where: { userId } });
   return wallet?.address || null;
+}
+
+export async function getDecryptedPrivateKey(userId: number): Promise<string | null> {
+  const wallet = await prisma.wallet.findFirst({ where: { userId } });
+  if (!wallet) return null;
+  return decrypt(wallet.encryptedKey);
+}
+
+export async function getDecryptedPhrase(userId: number): Promise<string | null> {
+  const wallet = await prisma.wallet.findFirst({ where: { userId } });
+  if (!wallet || !wallet.encryptedPhrase) return null;
+  return decrypt(wallet.encryptedPhrase);
 }
 
 export async function getEthBalance(address: string): Promise<string> {
