@@ -2,7 +2,7 @@
   "name": "error404-robinhood-bot",
   "version": "1.0.0",
   "private": true,
-  "description": "ERROR404 - Robinhood Chain Telegram Trading Bot",
+  "description": "ERROR404 Robinhood Chain Telegram Trading Bot",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
