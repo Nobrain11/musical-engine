@@ -1657,7 +1657,7 @@ bot.action(
       createConfirmation,
     } =
       await import(
-        "../services/confirmation"
+        "./services/confirmation"
       );
 
     createConfirmation({
@@ -1811,17 +1811,9 @@ bot.on(
     const text =
       ctx.message.text.trim();
 
-    /*
-     * Ignore commands.
-     */
-
     if (text.startsWith("/")) {
       return;
     }
-
-    /*
-     * Token / wallet address.
-     */
 
     if (
       validateAddress(text)
@@ -1953,10 +1945,6 @@ ${analysis.score}/100</b>`,
 
       return;
     }
-
-    /*
-     * Search market.
-     */
 
     if (
       text.length >= 2
