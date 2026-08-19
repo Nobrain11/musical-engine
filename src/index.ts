@@ -47,8 +47,6 @@ import {
 
 import {
   getTrackedWallets,
-  trackWallet,
-  untrackWallet,
 } from "./services/smartMoney";
 
 import {
@@ -78,7 +76,7 @@ const bot = new Telegraf(
 
 /*
 |--------------------------------------------------------------------------
-| Helpers
+| HELPERS
 |--------------------------------------------------------------------------
 */
 
@@ -88,9 +86,7 @@ function userIdFromContext(
   return ctx.from?.id ?? null;
 }
 
-async function showHome(
-  ctx: any,
-) {
+async function showHome(ctx: any) {
   await ctx.reply(
     `⚡ <b>ERROR404</b>
 
@@ -117,11 +113,6 @@ Select an action below.`,
 */
 
 bot.start(async (ctx) => {
-  const userId =
-    userIdFromContext(ctx);
-
-  if (!userId) return;
-
   await showHome(ctx);
 });
 
@@ -140,7 +131,7 @@ bot.command(
 ━━━━━━━━━━━━━━━━
 
 /start
-Open the terminal
+Open the bot
 
 /wallet
 Wallet information
@@ -424,7 +415,7 @@ inside Telegram messages.`,
 
 /*
 |--------------------------------------------------------------------------
-| SCAN COMMAND
+| SCAN
 |--------------------------------------------------------------------------
 */
 
@@ -460,7 +451,7 @@ bot.command(
     const positions =
       getPositions(userId);
 
-    if (positions.length === 0) {
+    if (!positions.length) {
       await ctx.reply(
         `📊 <b>POSITIONS</b>
 
@@ -477,15 +468,11 @@ No open positions.`,
     const lines =
       positions.map(
         (position, index) =>
-          `${index + 1}. <b>${
-            position.symbol
-          }</b>
+          `${index + 1}. <b>${position.symbol}</b>
 
 Entry: ${position.entryPrice}
 Current: ${position.currentPrice}
-PnL: ${percent(
-            position.pnlPercent,
-          )}`,
+PnL: ${percent(position.pnlPercent)}`,
       );
 
     await ctx.reply(
@@ -493,9 +480,7 @@ PnL: ${percent(
 
 ━━━━━━━━━━━━━━━━
 
-${lines.join(
-        "\n\n",
-      )}
+${lines.join("\n\n")}
 
 ━━━━━━━━━━━━━━━━`,
       {
@@ -523,7 +508,7 @@ bot.command(
     const orders =
       getOrders(userId);
 
-    if (orders.length === 0) {
+    if (!orders.length) {
       await ctx.reply(
         `📋 <b>ORDERS</b>
 
@@ -540,9 +525,7 @@ No orders.`,
     const lines =
       orders.map(
         (order, index) =>
-          `${index + 1}. ${order.side} ${
-            order.symbol
-          }
+          `${index + 1}. ${order.side} ${order.symbol}
 
 Type: ${order.type}
 Amount: ${order.amount}
@@ -554,9 +537,7 @@ Status: ${order.status}`,
 
 ━━━━━━━━━━━━━━━━
 
-${lines.join(
-        "\n\n",
-      )}`,
+${lines.join("\n\n")}`,
       {
         parse_mode: "HTML",
         reply_markup: backHome(),
@@ -597,14 +578,10 @@ Maximum Risk:
 ${sniper.maxRisk}
 
 Minimum Liquidity:
-${money(
-        sniper.minLiquidity,
-      )}
+${money(sniper.minLiquidity)}
 
 Maximum Market Cap:
-${money(
-        sniper.maxMarketCap,
-      )}
+${money(sniper.maxMarketCap)}
 
 Maximum Buy:
 ${sniper.maxBuyEth} ETH
@@ -657,9 +634,7 @@ bot.command(
     if (!userId) return;
 
     const autopilot =
-      getAutopilotConfig(
-        userId,
-      );
+      getAutopilotConfig(userId);
 
     await ctx.reply(
       `🤖 <b>AUTOPILOT</b>
@@ -667,11 +642,7 @@ bot.command(
 ━━━━━━━━━━━━━━━━
 
 Status:
-<b>${
-        autopilot.enabled
-          ? "🟢 ACTIVE"
-          : "🔴 OFF"
-      }</b>
+<b>${autopilot.enabled ? "🟢 ACTIVE" : "🔴 OFF"}</b>
 
 Capital:
 ${autopilot.capitalEth} ETH
@@ -695,9 +666,7 @@ Trailing Stop:
 ${autopilot.trailingStopPercent}%
 
 Take Profit:
-${autopilot.takeProfitLevels.join(
-        "% / ",
-      )}%
+${autopilot.takeProfitLevels.join("% / ")}%
 
 ━━━━━━━━━━━━━━━━`,
       {
@@ -748,16 +717,14 @@ Tracked wallets:
 <b>${wallets.length}</b>
 
 ${
-  wallets.length === 0
-    ? "No wallets tracked yet."
-    : wallets
+  wallets.length
+    ? wallets
         .map(
           (wallet) =>
-            `<code>${shortenAddress(
-              wallet,
-            )}</code>`,
+            `<code>${shortenAddress(wallet)}</code>`,
         )
         .join("\n")
+    : "No wallets tracked yet."
 }`,
       {
         parse_mode: "HTML",
@@ -837,7 +804,7 @@ Signals include:
 
 /*
 |--------------------------------------------------------------------------
-| HOME CALLBACK
+| HOME
 |--------------------------------------------------------------------------
 */
 
@@ -860,8 +827,7 @@ Automated strategies.
 Select an action below.`,
       {
         parse_mode: "HTML",
-        reply_markup:
-          homeKeyboard,
+        reply_markup: homeKeyboard,
       },
     );
   },
@@ -1036,8 +1002,7 @@ bot.action(
 No open positions.`,
         {
           parse_mode: "HTML",
-          reply_markup:
-            backHome(),
+          reply_markup: backHome(),
         },
       );
 
@@ -1051,15 +1016,12 @@ ${positions
   .map(
     (position) =>
       `• <b>${position.symbol}</b>
-PnL: ${percent(
-        position.pnlPercent,
-      )}`,
+PnL: ${percent(position.pnlPercent)}`,
   )
   .join("\n\n")}`,
       {
         parse_mode: "HTML",
-        reply_markup:
-          backHome(),
+        reply_markup: backHome(),
       },
     );
   },
@@ -1100,8 +1062,7 @@ ${order.type} • ${order.status}`,
 }`,
       {
         parse_mode: "HTML",
-        reply_markup:
-          backHome(),
+        reply_markup: backHome(),
       },
     );
   },
@@ -1130,19 +1091,13 @@ bot.action(
       `🎯 <b>SNIPER</b>
 
 Status:
-<b>${
-        sniper.enabled
-          ? "🟢 ON"
-          : "🔴 OFF"
-      }</b>
+<b>${sniper.enabled ? "🟢 ON" : "🔴 OFF"}</b>
 
 Score ≥ ${sniper.minScore}
 
 Risk ≤ ${sniper.maxRisk}
 
-Liquidity ≥ ${money(
-        sniper.minLiquidity,
-      )}
+Liquidity ≥ ${money(sniper.minLiquidity)}
 
 Max Buy:
 ${sniper.maxBuyEth} ETH`,
@@ -1246,19 +1201,13 @@ bot.action(
     await ctx.answerCbQuery();
 
     const autopilot =
-      getAutopilotConfig(
-        userId,
-      );
+      getAutopilotConfig(userId);
 
     await ctx.editMessageText(
       `🤖 <b>AUTOPILOT</b>
 
 Status:
-<b>${
-        autopilot.enabled
-          ? "🟢 ACTIVE"
-          : "🔴 OFF"
-      }</b>
+<b>${autopilot.enabled ? "🟢 ACTIVE" : "🔴 OFF"}</b>
 
 Capital:
 ${autopilot.capitalEth} ETH
@@ -1332,8 +1281,7 @@ Every trade passes through:
 • Final execution check`,
       {
         parse_mode: "HTML",
-        reply_markup:
-          backHome(),
+        reply_markup: backHome(),
       },
     );
   },
@@ -1359,8 +1307,7 @@ bot.action(
 Existing positions remain untouched.`,
       {
         parse_mode: "HTML",
-        reply_markup:
-          backHome(),
+        reply_markup: backHome(),
       },
     );
   },
@@ -1391,9 +1338,7 @@ ${
     ? wallets
         .map(
           (wallet) =>
-            `<code>${shortenAddress(
-              wallet,
-            )}</code>`,
+            `<code>${shortenAddress(wallet)}</code>`,
         )
         .join("\n")
     : "No wallets tracked."
@@ -1425,7 +1370,7 @@ ${
 
 /*
 |--------------------------------------------------------------------------
-| ALERT CALLBACKS
+| ALERT CALLBACK
 |--------------------------------------------------------------------------
 */
 
@@ -1488,8 +1433,7 @@ bot.action(
 ERROR404 will send qualifying market signals here.`,
       {
         parse_mode: "HTML",
-        reply_markup:
-          backHome(),
+        reply_markup: backHome(),
       },
     );
   },
@@ -1513,8 +1457,7 @@ bot.action(
       `🔕 <b>ALERTS DISABLED</b>`,
       {
         parse_mode: "HTML",
-        reply_markup:
-          backHome(),
+        reply_markup: backHome(),
       },
     );
   },
@@ -1522,7 +1465,7 @@ bot.action(
 
 /*
 |--------------------------------------------------------------------------
-| TOKEN BUY BUTTON
+| TOKEN BUY
 |--------------------------------------------------------------------------
 */
 
@@ -1570,19 +1513,13 @@ Price:
 $${token.price}
 
 Liquidity:
-${money(
-        token.liquidity,
-      )}
+${money(token.liquidity)}
 
 Momentum:
-${scoreBar(
-        token.momentumScore,
-      )}
+${scoreBar(token.momentumScore)}
 
 Smart Money:
-${scoreBar(
-        token.smartMoneyScore,
-      )}
+${scoreBar(token.smartMoneyScore)}
 
 Risk:
 ${token.riskScore}/100
@@ -1653,6 +1590,16 @@ bot.action(
       "Running Trade Guard...",
     );
 
+    /*
+     * IMPORTANT:
+     * PendingTrade requires slippage.
+     *
+     * Default execution slippage is
+     * intentionally conservative.
+     */
+    const slippage =
+      3;
+
     const {
       createConfirmation,
     } =
@@ -1662,12 +1609,21 @@ bot.action(
 
     createConfirmation({
       userId,
+
       tokenAddress:
         token.address,
+
       symbol:
         token.symbol,
-      side: "BUY",
-      amountEth: amount,
+
+      side:
+        "BUY",
+
+      amountEth:
+        amount,
+
+      slippage,
+
       expiresAt:
         Date.now() + 30_000,
     });
@@ -1679,6 +1635,9 @@ bot.action(
 
 Amount:
 ${amount} ETH
+
+Slippage:
+${slippage}%
 
 ━━━━━━━━━━━━━━━━
 
@@ -1696,7 +1655,7 @@ ${token.riskScore}/100
 
 ━━━━━━━━━━━━━━━━
 
-Final confirmation required.`,
+Confirmation expires in 30 seconds.`,
       {
         parse_mode: "HTML",
         reply_markup: {
@@ -1722,7 +1681,7 @@ Final confirmation required.`,
 
 /*
 |--------------------------------------------------------------------------
-| SELL CALLBACK
+| SELL
 |--------------------------------------------------------------------------
 */
 
@@ -1815,9 +1774,11 @@ bot.on(
       return;
     }
 
-    if (
-      validateAddress(text)
-    ) {
+    /*
+     * Token / wallet address
+     */
+
+    if (validateAddress(text)) {
       const token =
         await getToken(text);
 
@@ -1860,42 +1821,27 @@ Price
 $${token.price}
 
 Market Cap
-${money(
-          token.marketCap,
-        )}
+${money(token.marketCap)}
 
 Liquidity
-${money(
-          token.liquidity,
-        )}
+${money(token.liquidity)}
 
 24H Volume
-${money(
-          token.volume24h,
-        )}
+${money(token.volume24h)}
 
 ━━━━━━━━━━━━━━━━
 
 🔥 Momentum
-${scoreBar(
-          token.momentumScore,
-        )}
+${scoreBar(token.momentumScore)}
 
 🐋 Smart Money
-${scoreBar(
-          token.smartMoneyScore,
-        )}
+${scoreBar(token.smartMoneyScore)}
 
 💧 Liquidity
-${scoreBar(
-          token.liquidityScore,
-        )}
+${scoreBar(token.liquidityScore)}
 
 🛡 Risk
-${scoreBar(
-          100 -
-            token.riskScore,
-        )}
+${scoreBar(100 - token.riskScore)}
 
 ━━━━━━━━━━━━━━━━
 
@@ -1946,9 +1892,11 @@ ${analysis.score}/100</b>`,
       return;
     }
 
-    if (
-      text.length >= 2
-    ) {
+    /*
+     * Market search
+     */
+
+    if (text.length >= 2) {
       const results =
         await searchTokens(text);
 
@@ -1976,9 +1924,7 @@ ${results
     (token, index) =>
       `${index + 1}. <b>$${token.symbol}</b>
 ${token.name}
-Liquidity: ${money(
-        token.liquidity,
-      )}`,
+Liquidity: ${money(token.liquidity)}`,
   )
   .join("\n\n")}`,
         {
@@ -2024,7 +1970,7 @@ bot.catch(
 
 /*
 |--------------------------------------------------------------------------
-| START BOT
+| START
 |--------------------------------------------------------------------------
 */
 
@@ -2051,7 +1997,7 @@ async function main() {
 
 /*
 |--------------------------------------------------------------------------
-| Graceful shutdown
+| GRACEFUL SHUTDOWN
 |--------------------------------------------------------------------------
 */
 
