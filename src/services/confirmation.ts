@@ -1,162 +1,604 @@
 import {
-  ConfirmationTrade,
-  PendingTrade,
-  TradeSide,
+  HDNodeWallet,
+  Wallet,
+  isAddress,
+  getAddress,
+} from "ethers";
+
+import {
+  CreatedWallet,
+  StoredWallet,
+  WalletCredentials,
 } from "../types";
 
-const confirmations =
-  new Map<number, ConfirmationTrade>();
+import {
+  encryptSecret,
+  decryptSecret,
+} from "../utils/crypto";
 
-const DEFAULT_SLIPPAGE = 0.5;
+import {
+  addWallet,
+  createWalletId,
+  getActiveWallet,
+  getWallet,
+  getWallets,
+  removeWallet,
+  setActiveWallet,
+  walletNameExists,
+} from "./walletStore";
 
-export interface CreateConfirmationInput {
-  userId: number;
+function normalizeName(
+  name: string,
+): string {
+  const value =
+    name.trim();
 
-  tokenAddress: string;
+  if (!value) {
+    throw new Error(
+      "Wallet name is required",
+    );
+  }
 
-  symbol: string;
+  if (value.length > 32) {
+    throw new Error(
+      "Wallet name cannot exceed 32 characters",
+    );
+  }
 
-  side: TradeSide;
-
-  amountEth: string;
-
-  slippage?: number;
-
-  expiresAt?: number;
-
-  walletId?: string;
-
-  walletAddress?: string;
+  return value;
 }
 
-export function createConfirmation(
-  input: CreateConfirmationInput,
-): ConfirmationTrade {
-  const trade: ConfirmationTrade = {
-    id: `${input.userId}-${Date.now()}`,
+function uniqueName(
+  userId: number,
+  name: string,
+): string {
+  const normalized =
+    normalizeName(name);
 
-    userId:
-      input.userId,
+  if (
+    walletNameExists(
+      userId,
+      normalized,
+    )
+  ) {
+    throw new Error(
+      "A wallet with this name already exists",
+    );
+  }
 
-    tokenAddress:
-      input.tokenAddress,
+  return normalized;
+}
 
-    symbol:
-      input.symbol,
+function normalizePrivateKey(
+  privateKey: string,
+): string {
+  const key =
+    privateKey.trim();
 
-    side:
-      input.side,
+  if (
+    !/^0x[0-9a-fA-F]{64}$/.test(
+      key,
+    )
+  ) {
+    throw new Error(
+      "Invalid private key",
+    );
+  }
 
-    amountEth:
-      input.amountEth,
+  return key;
+}
 
-    slippage:
-      input.slippage ??
-      DEFAULT_SLIPPAGE,
+function normalizeAddress(
+  address: string,
+): string {
+  if (!isAddress(address)) {
+    throw new Error(
+      "Invalid wallet address",
+    );
+  }
 
-    expiresAt:
-      input.expiresAt ??
-      Date.now() + 30_000,
+  return getAddress(address);
+}
+
+function makeStoredWallet(
+  userId: number,
+  name: string,
+  address: string,
+  privateKey: string,
+  mnemonic: string | undefined,
+  source:
+    | "GENERATED"
+    | "PRIVATE_KEY"
+    | "SEED_PHRASE",
+): StoredWallet {
+  return {
+    id:
+      createWalletId(),
+
+    userId,
+
+    name,
+
+    address:
+      normalizeAddress(
+        address,
+      ),
+
+    encryptedPrivateKey:
+      encryptSecret(
+        privateKey,
+      ),
+
+    encryptedMnemonic:
+      mnemonic
+        ? encryptSecret(
+            mnemonic,
+          )
+        : null,
+
+    source,
 
     createdAt:
       Date.now(),
 
-    walletId:
-      input.walletId,
-
-    walletAddress:
-      input.walletAddress,
+    updatedAt:
+      Date.now(),
   };
-
-  confirmations.set(
-    input.userId,
-    trade,
-  );
-
-  return trade;
 }
 
-export function getConfirmation(
-  userId: number,
-): ConfirmationTrade | undefined {
-  const trade =
-    confirmations.get(userId);
+/*
+|--------------------------------------------------------------------------
+| Generate
+|--------------------------------------------------------------------------
+*/
 
-  if (!trade) {
-    return undefined;
-  }
+export function createWallet(
+  userId: number,
+  name = "Main",
+): CreatedWallet {
+  const walletName =
+    uniqueName(
+      userId,
+      name,
+    );
+
+  const wallet =
+    HDNodeWallet.createRandom();
+
+  const privateKey =
+    wallet.privateKey;
+
+  const mnemonic =
+    wallet.mnemonic?.phrase;
+
+  const stored =
+    makeStoredWallet(
+      userId,
+      walletName,
+      wallet.address,
+      privateKey,
+      mnemonic,
+      "GENERATED",
+    );
+
+  addWallet(stored);
+
+  return {
+    wallet: stored,
+
+    address:
+      stored.address,
+
+    privateKey,
+
+    mnemonic,
+
+    credentials: {
+      privateKey,
+      mnemonic,
+    },
+  };
+}
+
+/*
+|--------------------------------------------------------------------------
+| Compatibility API
+|--------------------------------------------------------------------------
+*/
+
+export function getWallet(
+  userId: number,
+): StoredWallet | undefined {
+  return getActiveWallet(
+    userId,
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Import Private Key
+|--------------------------------------------------------------------------
+*/
+
+export function importPrivateKey(
+  userId: number,
+  name: string,
+  privateKey: string,
+): StoredWallet {
+  const walletName =
+    uniqueName(
+      userId,
+      name,
+    );
+
+  const key =
+    normalizePrivateKey(
+      privateKey,
+    );
+
+  const wallet =
+    new Wallet(key);
+
+  const stored =
+    makeStoredWallet(
+      userId,
+      walletName,
+      wallet.address,
+      wallet.privateKey,
+      undefined,
+      "PRIVATE_KEY",
+    );
+
+  addWallet(stored);
+
+  return stored;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Generic import compatibility
+|--------------------------------------------------------------------------
+*/
+
+export function importWallet(
+  userId: number,
+  name: string,
+  secret: string,
+): StoredWallet {
+  const normalized =
+    secret
+      .trim()
+      .replace(/\s+/g, " ");
+
+  const words =
+    normalized.split(" ");
 
   if (
-    Date.now() >
-    trade.expiresAt
+    words.length === 12 ||
+    words.length === 15 ||
+    words.length === 18 ||
+    words.length === 21 ||
+    words.length === 24
   ) {
-    confirmations.delete(userId);
-
-    return undefined;
+    return importSeedPhrase(
+      userId,
+      name,
+      normalized,
+    );
   }
 
-  return trade;
+  return importPrivateKey(
+    userId,
+    name,
+    normalized,
+  );
 }
 
-export function removeConfirmation(
+/*
+|--------------------------------------------------------------------------
+| Import Seed
+|--------------------------------------------------------------------------
+*/
+
+export function importSeedPhrase(
   userId: number,
-): void {
-  confirmations.delete(
+  name: string,
+  phrase: string,
+): StoredWallet {
+  const walletName =
+    uniqueName(
+      userId,
+      name,
+    );
+
+  const normalized =
+    phrase
+      .trim()
+      .replace(/\s+/g, " ");
+
+  const words =
+    normalized.split(" ");
+
+  if (
+    ![
+      12,
+      15,
+      18,
+      21,
+      24,
+    ].includes(
+      words.length,
+    )
+  ) {
+    throw new Error(
+      "Invalid seed phrase",
+    );
+  }
+
+  const wallet =
+    HDNodeWallet.fromPhrase(
+      normalized,
+    );
+
+  const stored =
+    makeStoredWallet(
+      userId,
+      walletName,
+      wallet.address,
+      wallet.privateKey,
+      normalized,
+      "SEED_PHRASE",
+    );
+
+  addWallet(stored);
+
+  return stored;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Wallet list
+|--------------------------------------------------------------------------
+*/
+
+export function listWallets(
+  userId: number,
+): StoredWallet[] {
+  return getWallets(userId);
+}
+
+/*
+|--------------------------------------------------------------------------
+| Active wallet
+|--------------------------------------------------------------------------
+*/
+
+export function getActiveWalletForUser(
+  userId: number,
+): StoredWallet | undefined {
+  return getActiveWallet(
     userId,
   );
 }
 
-export function clearConfirmation(
+export function switchActiveWallet(
   userId: number,
-): void {
-  removeConfirmation(
+  walletId: string,
+): StoredWallet {
+  const wallet =
+    getWallet(
+      userId,
+      walletId,
+    );
+
+  if (!wallet) {
+    throw new Error(
+      "Wallet not found",
+    );
+  }
+
+  return setActiveWallet(
     userId,
+    walletId,
   );
 }
 
-export function hasConfirmation(
+/*
+|--------------------------------------------------------------------------
+| Delete
+|--------------------------------------------------------------------------
+*/
+
+export function deleteWallet(
   userId: number,
+  walletId: string,
 ): boolean {
-  return (
-    getConfirmation(userId) !==
-    undefined
+  return removeWallet(
+    userId,
+    walletId,
   );
 }
 
-export function confirmationToPendingTrade(
-  trade: ConfirmationTrade,
-): PendingTrade {
+/*
+|--------------------------------------------------------------------------
+| Credentials
+|--------------------------------------------------------------------------
+*/
+
+export function getWalletCredentials(
+  userId: number,
+  walletId: string,
+): WalletCredentials {
+  const wallet =
+    getWallet(
+      userId,
+      walletId,
+    );
+
+  if (!wallet) {
+    throw new Error(
+      "Wallet not found",
+    );
+  }
+
   return {
-    id: trade.id,
+    privateKey:
+      decryptSecret(
+        wallet.encryptedPrivateKey,
+      ),
 
-    userId:
-      trade.userId,
-
-    tokenAddress:
-      trade.tokenAddress,
-
-    symbol:
-      trade.symbol,
-
-    side:
-      trade.side,
-
-    amountEth:
-      trade.amountEth,
-
-    slippage:
-      trade.slippage,
-
-    expiresAt:
-      trade.expiresAt,
-
-    createdAt:
-      trade.createdAt,
-
-    walletId:
-      trade.walletId,
-
-    walletAddress:
-      trade.walletAddress,
+    mnemonic:
+      wallet.encryptedMnemonic
+        ? decryptSecret(
+            wallet.encryptedMnemonic,
+          )
+        : undefined,
   };
+}
+
+export function getActiveWalletCredentials(
+  userId: number,
+): WalletCredentials {
+  const wallet =
+    getActiveWallet(
+      userId,
+    );
+
+  if (!wallet) {
+    throw new Error(
+      "No active wallet",
+    );
+  }
+
+  return getWalletCredentials(
+    userId,
+    wallet.id,
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Compatibility export
+|--------------------------------------------------------------------------
+*/
+
+export function decryptPrivateKey(
+  userId: number,
+  walletId?: string,
+): string {
+  const wallet =
+    walletId
+      ? getWallet(
+          userId,
+          walletId,
+        )
+      : getActiveWallet(
+          userId,
+        );
+
+  if (!wallet) {
+    throw new Error(
+      "Wallet not found",
+    );
+  }
+
+  return decryptSecret(
+    wallet.encryptedPrivateKey,
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Balance
+|--------------------------------------------------------------------------
+*/
+
+export async function getBalance(
+  userId: number,
+): Promise<string> {
+  const wallet =
+    getActiveWallet(
+      userId,
+    );
+
+  if (!wallet) {
+    return "0.0000";
+  }
+
+  const rpc =
+    process.env.NEXT_PUBLIC_RPC_URL ||
+    process.env.RPC_URL;
+
+  if (!rpc) {
+    return "0.0000";
+  }
+
+  try {
+    const response =
+      await fetch(
+        rpc,
+        {
+          method: "POST",
+
+          headers: {
+            "content-type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method:
+              "eth_getBalance",
+            params: [
+              wallet.address,
+              "latest",
+            ],
+          }),
+        },
+      );
+
+    if (!response.ok) {
+      return "0.0000";
+    }
+
+    const data =
+      (await response.json()) as {
+        result?: string;
+      };
+
+    if (!data.result) {
+      return "0.0000";
+    }
+
+    const wei =
+      BigInt(
+        data.result,
+      );
+
+    const base =
+      1_000_000_000_000_000_000n;
+
+    const whole =
+      wei / base;
+
+    const remainder =
+      wei % base;
+
+    const decimals =
+      remainder
+        .toString()
+        .padStart(
+          18,
+          "0",
+        )
+        .slice(
+          0,
+          4,
+        );
+
+    return `${whole}.${decimals}`;
+  } catch {
+    return "0.0000";
+  }
 }
