@@ -2,7 +2,7 @@ const DEX_SCREENER_API = 'https://api.dexscreener.com/latest/dex/search';
 
 export async function searchTokens(query: string) {
   const res = await fetch(`${DEX_SCREENER_API}?q=${encodeURIComponent(query)}`);
-  const data = await res.json();
+  const data = await res.json() as any;
   if (data.pairs) {
     return data.pairs.filter((p: any) => p.chainId === 'robinhood');
   }
