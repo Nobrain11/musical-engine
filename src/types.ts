@@ -1,29 +1,15 @@
 // src/types.ts
 
-/*
-|--------------------------------------------------------------------------
-| Wallet
-|--------------------------------------------------------------------------
-*/
-
 export interface Wallet {
   userId: number;
   address: string;
   encryptedPrivateKey: string;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Token
-|--------------------------------------------------------------------------
-*/
-
 export interface Token {
   address: string;
-
   name: string;
   symbol: string;
-
   decimals: number;
 
   price: number;
@@ -56,12 +42,6 @@ export interface Token {
   migrated?: boolean;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Token Analysis
-|--------------------------------------------------------------------------
-*/
-
 export interface TokenAnalysis {
   token: Token;
 
@@ -75,29 +55,17 @@ export interface TokenAnalysis {
   approved: boolean;
 
   reasons: string[];
-
   warnings: string[];
 
   timestamp: number;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Trade Side
-|--------------------------------------------------------------------------
-*/
-
 export type TradeSide =
   | "BUY"
   | "SELL";
 
-/*
-|--------------------------------------------------------------------------
-| Trade Status
-|--------------------------------------------------------------------------
-*/
-
 export type TradeStatus =
+  | "OPEN"
   | "PENDING"
   | "SIMULATING"
   | "APPROVED"
@@ -108,12 +76,6 @@ export type TradeStatus =
   | "FAILED"
   | "CANCELLED";
 
-/*
-|--------------------------------------------------------------------------
-| Order Type
-|--------------------------------------------------------------------------
-*/
-
 export type OrderType =
   | "MARKET"
   | "LIMIT"
@@ -121,12 +83,6 @@ export type OrderType =
   | "TAKE_PROFIT"
   | "TRAILING_STOP"
   | "DCA";
-
-/*
-|--------------------------------------------------------------------------
-| Trade Request
-|--------------------------------------------------------------------------
-*/
 
 export interface TradeRequest {
   userId: number;
@@ -154,12 +110,6 @@ export interface TradeRequest {
   autoExecute?: boolean;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Trade Guard
-|--------------------------------------------------------------------------
-*/
-
 export interface TradeGuardResult {
   approved: boolean;
 
@@ -186,12 +136,6 @@ export interface TradeGuardResult {
   timestamp?: number;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Swap Quote
-|--------------------------------------------------------------------------
-*/
-
 export interface SwapQuote {
   tokenIn: string;
 
@@ -212,19 +156,10 @@ export interface SwapQuote {
   transaction?: TransactionRequest;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Transaction Request
-|--------------------------------------------------------------------------
-*/
-
 export interface TransactionRequest {
   from?: string;
-
   to?: string;
-
   data?: string;
-
   value?: bigint;
 
   gasLimit?: bigint;
@@ -237,12 +172,6 @@ export interface TransactionRequest {
 
   chainId?: number;
 }
-
-/*
-|--------------------------------------------------------------------------
-| Transaction Result
-|--------------------------------------------------------------------------
-*/
 
 export interface TransactionResult {
   success: boolean;
@@ -257,12 +186,6 @@ export interface TransactionResult {
 
   error?: string;
 }
-
-/*
-|--------------------------------------------------------------------------
-| Order
-|--------------------------------------------------------------------------
-*/
 
 export interface Order {
   id: string;
@@ -287,16 +210,10 @@ export interface Order {
 
   txHash?: string;
 
-  createdAt: number;
+  createdAt: Date | number;
 
-  updatedAt: number;
+  updatedAt: Date | number;
 }
-
-/*
-|--------------------------------------------------------------------------
-| Position
-|--------------------------------------------------------------------------
-*/
 
 export interface Position {
   id: string;
@@ -336,12 +253,6 @@ export interface Position {
   updatedAt: number;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Sniper Configuration
-|--------------------------------------------------------------------------
-*/
-
 export interface SniperConfig {
   enabled: boolean;
 
@@ -370,12 +281,6 @@ export interface SniperConfig {
   takeProfitPercent?: number;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Autopilot Configuration
-|--------------------------------------------------------------------------
-*/
-
 export interface AutopilotConfig {
   enabled: boolean;
 
@@ -389,7 +294,7 @@ export interface AutopilotConfig {
 
   maxRisk: number;
 
-  minLiquidity?: number;
+  minLiquidity: number;
 
   slippage?: number;
 
@@ -407,12 +312,6 @@ export interface AutopilotConfig {
 
   cooldownSeconds?: number;
 }
-
-/*
-|--------------------------------------------------------------------------
-| Smart Money Wallet
-|--------------------------------------------------------------------------
-*/
 
 export interface SmartMoneyWallet {
   address: string;
@@ -434,12 +333,6 @@ export interface SmartMoneyWallet {
   enabled?: boolean;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Smart Money Activity
-|--------------------------------------------------------------------------
-*/
-
 export interface SmartMoneyActivity {
   walletAddress: string;
 
@@ -458,12 +351,6 @@ export interface SmartMoneyActivity {
   timestamp: number;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Alert
-|--------------------------------------------------------------------------
-*/
-
 export type AlertType =
   | "MOMENTUM"
   | "SMART_MONEY"
@@ -473,12 +360,6 @@ export type AlertType =
   | "PRICE"
   | "TRADE"
   | "POSITION";
-
-/*
-|--------------------------------------------------------------------------
-| Alert
-|--------------------------------------------------------------------------
-*/
 
 export interface Alert {
   id: string;
@@ -502,12 +383,6 @@ export interface Alert {
   read?: boolean;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Price Alert
-|--------------------------------------------------------------------------
-*/
-
 export interface PriceAlert {
   id: string;
 
@@ -530,12 +405,6 @@ export interface PriceAlert {
   triggeredAt?: number;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Wallet Tracking
-|--------------------------------------------------------------------------
-*/
-
 export interface WalletTracking {
   userId: number;
 
@@ -547,12 +416,6 @@ export interface WalletTracking {
 
   createdAt: number;
 }
-
-/*
-|--------------------------------------------------------------------------
-| Confirmation Trade
-|--------------------------------------------------------------------------
-*/
 
 export interface PendingTrade {
   userId: number;
@@ -569,12 +432,6 @@ export interface PendingTrade {
 
   expiresAt: number;
 }
-
-/*
-|--------------------------------------------------------------------------
-| Execution Result
-|--------------------------------------------------------------------------
-*/
 
 export interface ExecutionResult {
   success: boolean;
@@ -593,12 +450,6 @@ export interface ExecutionResult {
 
   timestamp: number;
 }
-
-/*
-|--------------------------------------------------------------------------
-| Market Data
-|--------------------------------------------------------------------------
-*/
 
 export interface MarketData {
   tokenAddress: string;
@@ -636,12 +487,6 @@ export interface MarketData {
   timestamp: number;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Router
-|--------------------------------------------------------------------------
-*/
-
 export interface SwapRouter {
   getQuote(
     tokenIn: string,
@@ -660,12 +505,6 @@ export interface SwapRouter {
     wallet: string,
   ): Promise<TransactionRequest>;
 }
-
-/*
-|--------------------------------------------------------------------------
-| Risk Result
-|--------------------------------------------------------------------------
-*/
 
 export interface RiskResult {
   score: number;
@@ -693,12 +532,6 @@ export interface RiskResult {
   };
 }
 
-/*
-|--------------------------------------------------------------------------
-| Simulation Result
-|--------------------------------------------------------------------------
-*/
-
 export interface SimulationResult {
   success: boolean;
 
@@ -710,12 +543,6 @@ export interface SimulationResult {
 
   timestamp?: number;
 }
-
-/*
-|--------------------------------------------------------------------------
-| Gas Estimate
-|--------------------------------------------------------------------------
-*/
 
 export interface GasEstimate {
   gasLimit: bigint;
@@ -731,12 +558,6 @@ export interface GasEstimate {
   costEth: string;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Scanner Result
-|--------------------------------------------------------------------------
-*/
-
 export interface ScannerResult {
   token: Token;
 
@@ -748,12 +569,6 @@ export interface ScannerResult {
 
   timestamp: number;
 }
-
-/*
-|--------------------------------------------------------------------------
-| Bot User
-|--------------------------------------------------------------------------
-*/
 
 export interface BotUser {
   id: number;
@@ -775,12 +590,6 @@ export interface BotUser {
   updatedAt: number;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Pagination
-|--------------------------------------------------------------------------
-*/
-
 export interface Pagination {
   page: number;
 
@@ -790,12 +599,6 @@ export interface Pagination {
 
   hasMore: boolean;
 }
-
-/*
-|--------------------------------------------------------------------------
-| Generic API Response
-|--------------------------------------------------------------------------
-*/
 
 export interface ApiResponse<T> {
   success: boolean;
