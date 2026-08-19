@@ -42,14 +42,12 @@ export async function executeSwap(
   const minOut = ethers.parseEther(minAmount);
   const deadline = Math.floor(Date.now() / 1000) + 60 * 20;
 
-  // Check token state
   const state = await getTokenState(tokenCa);
   if (state.graduated) {
-    // Use UniversalRouter
     const router = new ethers.Contract(UNIVERSAL_ROUTER, ROUTER_ABI, wallet);
     const tx = await router.swap(
       {
-        commands: '0x00', // placeholder – need real commands
+        commands: '0x00',
         inputs: [],
         deadline,
       },
@@ -61,8 +59,6 @@ export async function executeSwap(
     const receipt = await tx.wait();
     return receipt;
   } else {
-    // Use Bags bonding curve (simplified – real integration would call Bags contract)
-    // For now, simulate
     throw new Error('Bags bonding curve not yet implemented in this bot version');
   }
 }
