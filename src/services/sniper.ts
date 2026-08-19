@@ -1,76 +1,266 @@
+// src/services/sniper.ts
+
 import {
   SniperConfig,
-  Token,
 } from "../types";
 
-const configs = new Map<
-  number,
-  SniperConfig
->();
+const sniperConfigs =
+  new Map<
+    number,
+    SniperConfig
+  >();
+
+function numberEnv(
+  name: string,
+  fallback: number,
+): number {
+  const value =
+    process.env[name];
+
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed =
+    Number(value);
+
+  return Number.isFinite(
+    parsed,
+  )
+    ? parsed
+    : fallback;
+}
+
+function defaultSniperConfig(): SniperConfig {
+  return {
+    enabled: false,
+
+    minScore:
+      numberEnv(
+        "SNIPER_MIN_SCORE",
+        80,
+      ),
+
+    maxRisk:
+      numberEnv(
+        "SNIPER_MAX_RISK",
+        30,
+      ),
+
+    minLiquidity:
+      numberEnv(
+        "SNIPER_MIN_LIQUIDITY",
+        25_000,
+      ),
+
+    maxMarketCap:
+      numberEnv(
+        "SNIPER_MAX_MARKET_CAP",
+        5_000_000,
+      ),
+
+    maxBuyEth:
+      numberEnv(
+        "SNIPER_MAX_BUY_ETH",
+        0.1,
+      ),
+
+    slippage:
+      numberEnv(
+        "SNIPER_SLIPPAGE",
+        1,
+      ),
+
+    maxGasEth:
+      numberEnv(
+        "SNIPER_MAX_GAS_ETH",
+        0.01,
+      ),
+
+    requireSimulation: true,
+
+    requireSmartMoney: false,
+
+    autoSell: false,
+
+    stopLossPercent: 15,
+
+    takeProfitPercent: 50,
+  };
+}
 
 export function getSniperConfig(
   userId: number,
 ): SniperConfig {
-  return (
-    configs.get(userId) ?? {
-      enabled: false,
+  let config =
+    sniperConfigs.get(
+      userId,
+    );
 
-      minLiquidity: 50_000,
-      maxMarketCap: 1_000_000,
+  if (!config) {
+    config =
+      defaultSniperConfig();
 
-      minScore: 85,
-      maxRisk: 30,
+    sniperConfigs.set(
+      userId,
+      config,
+    );
+  }
 
-      maxBuyEth: "0.10",
-      maxPositions: 5,
-
-      slippage: 1,
-    }
-  );
+  return {
+    ...config,
+  };
 }
 
-export function updateSniperConfig(
+export function setSniperConfig(
   userId: number,
-  config: SniperConfig,
-) {
-  configs.set(userId, config);
-}
+  updates: Partial<SniperConfig>,
+): SniperConfig {
+  const current =
+    getSniperConfig(userId);
 
-export function matchesSniper(
-  token: Token,
-  config: SniperConfig,
-): boolean {
-  return (
-    token.liquidity >=
-      config.minLiquidity &&
-    token.marketCap <=
-      config.maxMarketCap &&
-    token.momentumScore >=
-      config.minScore &&
-    token.riskScore <=
-      config.maxRisk &&
-    token.smartMoneyScore >= 80
+  const updated: SniperConfig =
+    {
+      ...current,
+      ...updates,
+
+      minScore:
+        Number(
+          updates.minScore ??
+            current.minScore,
+        ),
+
+      maxRisk:
+        Number(
+          updates.maxRisk ??
+            current.maxRisk,
+        ),
+
+      minLiquidity:
+        Number(
+          updates.minLiquidity ??
+            current.minLiquidity,
+        ),
+
+      maxMarketCap:
+        Number(
+          updates.maxMarketCap ??
+            current.maxMarketCap,
+        ),
+
+      maxBuyEth:
+        Number(
+          updates.maxBuyEth ??
+            current.maxBuyEth,
+        ),
+
+      slippage:
+        Number(
+          updates.slippage ??
+            current.slippage,
+        ),
+
+      maxGasEth:
+        Number(
+          updates.maxGasEth ??
+            current.maxGasEth ??
+            0.01,
+        ),
+
+      stopLossPercent:
+        Number(
+          updates.stopLossPercent ??
+            current.stopLossPercent ??
+            15,
+        ),
+
+      takeProfitPercent:
+        Number(
+          updates.takeProfitPercent ??
+            current.takeProfitPercent ??
+            50,
+        ),
+    };
+
+  sniperConfigs.set(
+    userId,
+    updated,
   );
+
+  return updated;
 }
 
 export function startSniper(
   userId: number,
-) {
-  const config =
-    getSniperConfig(userId);
-
-  config.enabled = true;
-
-  configs.set(userId, config);
+): SniperConfig {
+  return setSniperConfig(
+    userId,
+    {
+      enabled: true,
+    },
+  );
 }
 
 export function stopSniper(
   userId: number,
-) {
+): SniperConfig {
+  return setSniperConfig(
+    userId,
+    {
+      enabled: false,
+    },
+  );
+}
+
+export function isSniperEnabled(
+  userId: number,
+): boolean {
+  return getSniperConfig(
+    userId,
+  ).enabled;
+}
+
+export function canSniperTrade(
+  userId: number,
+  score: number,
+  risk: number,
+  liquidity: number,
+  marketCap: number,
+): boolean {
   const config =
     getSniperConfig(userId);
 
-  config.enabled = false;
+  if (!config.enabled) {
+    return false;
+  }
 
-  configs.set(userId, config);
+  if (
+    score <
+    config.minScore
+  ) {
+    return false;
+  }
+
+  if (
+    risk >
+    config.maxRisk
+  ) {
+    return false;
+  }
+
+  if (
+    liquidity <
+    config.minLiquidity
+  ) {
+    return false;
+  }
+
+  if (
+    marketCap >
+    config.maxMarketCap
+  ) {
+    return false;
+  }
+
+  return true;
 }
