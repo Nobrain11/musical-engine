@@ -1,53 +1,84 @@
+// src/services/orders.ts
+
+import {
+  randomUUID,
+} from "crypto";
+
 import {
   Order,
   OrderType,
   TradeSide,
+  TradeStatus,
 } from "../types";
 
-const orders = new Map<
-  number,
-  Order[]
->();
+const orders =
+  new Map<
+    number,
+    Order[]
+  >();
 
 export function createOrder(
   userId: number,
-  data: {
+  params: {
     tokenAddress: string;
     symbol: string;
-    type: OrderType;
     side: TradeSide;
+    type: OrderType;
     amount: string;
-    triggerPrice?: string;
+    price?: string;
+    stopPrice?: string;
   },
 ): Order {
+  const now =
+    new Date();
+
   const order: Order = {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
+
+    userId,
 
     tokenAddress:
-      data.tokenAddress,
+      params.tokenAddress,
 
-    symbol: data.symbol,
+    symbol:
+      params.symbol,
 
-    type: data.type,
+    side:
+      params.side,
 
-    side: data.side,
+    type:
+      params.type,
 
-    amount: data.amount,
+    amount:
+      params.amount,
 
-    triggerPrice:
-      data.triggerPrice,
+    price:
+      params.price,
 
-    status: "OPEN",
+    stopPrice:
+      params.stopPrice,
 
-    createdAt: new Date(),
+    status:
+      "OPEN",
+
+    createdAt:
+      now,
+
+    updatedAt:
+      now,
   };
 
-  const current =
+  const userOrders =
     orders.get(userId) ?? [];
 
-  current.push(order);
+  userOrders.push(
+    order,
+  );
 
-  orders.set(userId, current);
+  orders.set(
+    userId,
+    userOrders,
+  );
 
   return order;
 }
@@ -55,25 +86,116 @@ export function createOrder(
 export function getOrders(
   userId: number,
 ): Order[] {
-  return orders.get(userId) ?? [];
+  return [
+    ...(orders.get(userId) ?? []),
+  ];
+}
+
+export function getOrder(
+  userId: number,
+  orderId: string,
+): Order | undefined {
+  return (
+    orders
+      .get(userId)
+      ?.find(
+        (order) =>
+          order.id ===
+          orderId,
+      )
+  );
+}
+
+export function updateOrder(
+  userId: number,
+  orderId: string,
+  updates: Partial<Order>,
+): Order | undefined {
+  const userOrders =
+    orders.get(userId);
+
+  if (!userOrders) {
+    return undefined;
+  }
+
+  const order =
+    userOrders.find(
+      (item) =>
+        item.id ===
+        orderId,
+    );
+
+  if (!order) {
+    return undefined;
+  }
+
+  Object.assign(
+    order,
+    updates,
+    {
+      updatedAt:
+        new Date(),
+    },
+  );
+
+  return order;
 }
 
 export function cancelOrder(
   userId: number,
   orderId: string,
-): boolean {
-  const current =
-    orders.get(userId) ?? [];
-
-  const order = current.find(
-    (item) => item.id === orderId,
+): Order | undefined {
+  return updateOrder(
+    userId,
+    orderId,
+    {
+      status:
+        "CANCELLED",
+    },
   );
-
-  if (!order) return false;
-
-  order.status = "CANCELLED";
-
-  return true;
 }
 
-import crypto from "crypto";
+export function markOrderPending(
+  userId: number,
+  orderId: string,
+): Order | undefined {
+  return updateOrder(
+    userId,
+    orderId,
+    {
+      status:
+        "PENDING",
+    },
+  );
+}
+
+export function markOrderConfirmed(
+  userId: number,
+  orderId: string,
+  txHash: string,
+): Order | undefined {
+  return updateOrder(
+    userId,
+    orderId,
+    {
+      status:
+        "CONFIRMED",
+
+      txHash,
+    },
+  );
+}
+
+export function markOrderFailed(
+  userId: number,
+  orderId: string,
+): Order | undefined {
+  return updateOrder(
+    userId,
+    orderId,
+    {
+      status:
+        "FAILED",
+    },
+  );
+}
