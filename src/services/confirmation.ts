@@ -1,68 +1,117 @@
-import { randomUUID } from "crypto";
 import {
+  ConfirmationTrade,
   PendingTrade,
   TradeSide,
 } from "../types";
 
-export interface ConfirmationTrade
-  extends PendingTrade {
-  id: string;
-  createdAt: number;
-}
-
 const confirmations =
   new Map<number, ConfirmationTrade>();
 
-const DEFAULT_EXPIRY_MS = 60_000;
+const DEFAULT_SLIPPAGE = 0.5;
+
+export interface CreateConfirmationInput {
+  userId: number;
+
+  tokenAddress: string;
+
+  symbol: string;
+
+  side: TradeSide;
+
+  amountEth: string;
+
+  slippage?: number;
+
+  expiresAt?: number;
+
+  walletId?: string;
+
+  walletAddress?: string;
+}
 
 export function createConfirmation(
-  trade: PendingTrade,
+  input: CreateConfirmationInput,
 ): ConfirmationTrade {
-  const confirmation: ConfirmationTrade = {
-    ...trade,
-    id: randomUUID(),
-    createdAt: Date.now(),
+  const trade: ConfirmationTrade = {
+    id: `${input.userId}-${Date.now()}`,
+
+    userId:
+      input.userId,
+
+    tokenAddress:
+      input.tokenAddress,
+
+    symbol:
+      input.symbol,
+
+    side:
+      input.side,
+
+    amountEth:
+      input.amountEth,
+
+    slippage:
+      input.slippage ??
+      DEFAULT_SLIPPAGE,
+
+    expiresAt:
+      input.expiresAt ??
+      Date.now() + 30_000,
+
+    createdAt:
+      Date.now(),
+
+    walletId:
+      input.walletId,
+
+    walletAddress:
+      input.walletAddress,
   };
 
   confirmations.set(
-    trade.userId,
-    confirmation,
+    input.userId,
+    trade,
   );
 
-  return confirmation;
+  return trade;
 }
 
 export function getConfirmation(
   userId: number,
 ): ConfirmationTrade | undefined {
-  const confirmation =
+  const trade =
     confirmations.get(userId);
 
-  if (!confirmation) {
+  if (!trade) {
     return undefined;
   }
 
   if (
     Date.now() >
-    confirmation.expiresAt
+    trade.expiresAt
   ) {
     confirmations.delete(userId);
+
     return undefined;
   }
 
-  return confirmation;
+  return trade;
 }
 
 export function removeConfirmation(
   userId: number,
 ): void {
-  confirmations.delete(userId);
+  confirmations.delete(
+    userId,
+  );
 }
 
 export function clearConfirmation(
   userId: number,
 ): void {
-  confirmations.delete(userId);
+  removeConfirmation(
+    userId,
+  );
 }
 
 export function hasConfirmation(
@@ -74,49 +123,40 @@ export function hasConfirmation(
   );
 }
 
-export function createTradeConfirmation(
-  userId: number,
-  tokenAddress: string,
-  symbol: string,
-  side: TradeSide,
-  amountEth: string,
-  slippage: number,
-  expiryMs = DEFAULT_EXPIRY_MS,
-): ConfirmationTrade {
-  return createConfirmation({
-    userId,
-    tokenAddress,
-    symbol,
-    side,
-    amountEth,
-    slippage,
+export function confirmationToPendingTrade(
+  trade: ConfirmationTrade,
+): PendingTrade {
+  return {
+    id: trade.id,
+
+    userId:
+      trade.userId,
+
+    tokenAddress:
+      trade.tokenAddress,
+
+    symbol:
+      trade.symbol,
+
+    side:
+      trade.side,
+
+    amountEth:
+      trade.amountEth,
+
+    slippage:
+      trade.slippage,
+
     expiresAt:
-      Date.now() + expiryMs,
-  });
+      trade.expiresAt,
+
+    createdAt:
+      trade.createdAt,
+
+    walletId:
+      trade.walletId,
+
+    walletAddress:
+      trade.walletAddress,
+  };
 }
-
-export function cleanupConfirmations(): void {
-  const now = Date.now();
-
-  for (
-    const [
-      userId,
-      confirmation,
-    ] of confirmations.entries()
-  ) {
-    if (
-      now >
-      confirmation.expiresAt
-    ) {
-      confirmations.delete(userId);
-    }
-  }
-}
-
-const cleanupTimer =
-  setInterval(
-    cleanupConfirmations,
-    10_000,
-  );
-
-cleanupTimer.unref();
