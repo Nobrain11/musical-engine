@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/bot/index.js",
+    "build": "echo 'No build needed' && exit 0",
+    "start": "tsx src/bot/index.ts",
     "bot": "tsx src/bot/index.ts",
     "postinstall": "prisma generate"
   },
