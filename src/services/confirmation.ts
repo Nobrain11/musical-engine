@@ -1,34 +1,47 @@
-import {
-  Context,
-  Telegraf,
-} from "telegraf";
+// src/services/confirmation.ts
+
+import type {
+  TradeSide,
+} from "../types";
 
 export interface PendingTrade {
   userId: number;
+
   tokenAddress: string;
+
   symbol: string;
-  side: "BUY" | "SELL";
+
+  side: TradeSide;
+
   amountEth: string;
+
+  slippage: number;
+
   expiresAt: number;
 }
 
-const pending =
-  new Map<number, PendingTrade>();
+const pendingTrades =
+  new Map<
+    number,
+    PendingTrade
+  >();
 
 export function createConfirmation(
   trade: PendingTrade,
-) {
-  pending.set(
+): PendingTrade {
+  pendingTrades.set(
     trade.userId,
     trade,
   );
+
+  return trade;
 }
 
 export function getConfirmation(
   userId: number,
-) {
+): PendingTrade | undefined {
   const trade =
-    pending.get(userId);
+    pendingTrades.get(userId);
 
   if (!trade) {
     return undefined;
@@ -38,7 +51,7 @@ export function getConfirmation(
     Date.now() >
     trade.expiresAt
   ) {
-    pending.delete(userId);
+    pendingTrades.delete(userId);
 
     return undefined;
   }
@@ -48,53 +61,41 @@ export function getConfirmation(
 
 export function removeConfirmation(
   userId: number,
-) {
-  pending.delete(userId);
+): void {
+  pendingTrades.delete(userId);
 }
 
-export async function askConfirmation(
-  ctx: Context,
-  trade: PendingTrade,
-) {
-  createConfirmation(trade);
+export function clearExpiredConfirmations(): void {
+  const now =
+    Date.now();
 
-  await ctx.reply(
-    `⚠️ <b>TRADE CONFIRMATION</b>
+  for (
+    const [
+      userId,
+      trade,
+    ] of pendingTrades
+  ) {
+    if (
+      now >
+      trade.expiresAt
+    ) {
+      pendingTrades.delete(
+        userId,
+      );
+    }
+  }
+}
 
-━━━━━━━━━━━━━━━━
-
-${trade.side === "BUY" ? "🟢 BUY" : "🔴 SELL"}
-
-Token:
-<b>${trade.symbol}</b>
-
-Amount:
-<b>${trade.amountEth} ETH</b>
-
-━━━━━━━━━━━━━━━━
-
-This transaction will be simulated
-again before execution.
-
-Confirmation expires in 30 seconds.`,
-    {
-      parse_mode: "HTML",
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: "✅ CONFIRM",
-              callback_data:
-                "confirm_trade",
-            },
-            {
-              text: "❌ CANCEL",
-              callback_data:
-                "cancel_trade",
-            },
-          ],
-        ],
-      },
-    },
+export function hasConfirmation(
+  userId: number,
+): boolean {
+  return (
+    getConfirmation(userId) !==
+    undefined
   );
 }
+
+setInterval(
+  clearExpiredConfirmations,
+  10_000,
+).unref();
