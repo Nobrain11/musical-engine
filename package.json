@@ -1,21 +1,22 @@
 {
-  "compilerOptions": {
-    "target": "ES2017",
-    "module": "commonjs",
-    "lib": ["esnext"],
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "resolveJsonModule": true,
-    "moduleResolution": "node",
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+  "name": "error404-bot",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/bot/index.js",
+    "bot": "tsx src/bot/index.ts",
+    "postinstall": "prisma generate"
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "dependencies": {
+    "@prisma/client": "^5.10.2",
+    "ethers": "^6.11.1",
+    "telegraf": "^4.16.3",
+    "tsx": "^4.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "prisma": "^5.10.2",
+    "typescript": "^5.3.3"
+  }
 }
