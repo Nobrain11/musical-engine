@@ -1,3 +1,5 @@
+// src/services/wallet.ts
+
 import {
   HDNodeWallet,
   Wallet,
@@ -36,7 +38,7 @@ import {
 function normalizeName(
   name: string,
 ): string {
-  const value = name.trim();
+  const value = String(name ?? "").trim();
 
   if (!value) {
     throw new Error(
@@ -57,8 +59,7 @@ function uniqueName(
   userId: number,
   name: string,
 ): string {
-  const normalized =
-    normalizeName(name);
+  const normalized = normalizeName(name);
 
   if (
     walletNameExists(
@@ -77,12 +78,10 @@ function uniqueName(
 function normalizePrivateKey(
   privateKey: string,
 ): string {
-  const key = privateKey.trim();
+  const key = String(privateKey ?? "").trim();
 
   if (
-    !/^0x[0-9a-fA-F]{64}$/.test(
-      key,
-    )
+    !/^0x[0-9a-fA-F]{64}$/.test(key)
   ) {
     throw new Error(
       "Invalid private key",
@@ -95,15 +94,13 @@ function normalizePrivateKey(
 function normalizeAddress(
   address: string,
 ): string {
-  const value = address.trim();
-
-  if (!isAddress(value)) {
+  if (!isAddress(address)) {
     throw new Error(
       "Invalid wallet address",
     );
   }
 
-  return getAddress(value);
+  return getAddress(address);
 }
 
 function makeStoredWallet(
@@ -126,8 +123,7 @@ function makeStoredWallet(
 
     name,
 
-    address:
-      normalizeAddress(address),
+    address: normalizeAddress(address),
 
     encryptedPrivateKey:
       encryptSecret(privateKey),
@@ -146,7 +142,7 @@ function makeStoredWallet(
 
 /*
 |--------------------------------------------------------------------------
-| Create Wallet
+| Generate Wallet
 |--------------------------------------------------------------------------
 */
 
@@ -154,11 +150,10 @@ export function createWallet(
   userId: number,
   name = "Main",
 ): CreatedWallet {
-  const walletName =
-    uniqueName(
-      userId,
-      name,
-    );
+  const walletName = uniqueName(
+    userId,
+    name,
+  );
 
   const wallet =
     HDNodeWallet.createRandom();
@@ -184,8 +179,7 @@ export function createWallet(
   return {
     wallet: stored,
 
-    address:
-      stored.address,
+    address: stored.address,
 
     privateKey,
 
@@ -200,39 +194,40 @@ export function createWallet(
 
 /*
 |--------------------------------------------------------------------------
-| Compatibility getWallet API
+| Get Active Wallet
 |--------------------------------------------------------------------------
+|
+| Compatibility API.
+|
+| Existing code can continue doing:
 |
 | getWallet(userId)
-|     -> active wallet
 |
-| getWallet(userId, walletId)
-|     -> specific wallet
-|--------------------------------------------------------------------------
 */
 
 export function getWallet(
   userId: number,
-  walletId?: string,
 ): StoredWallet | undefined {
-  if (walletId) {
-    const wallet =
-      getStoredWallet(
-        userId,
-        walletId,
-      );
-
-    if (
-      !wallet ||
-      wallet.userId !== userId
-    ) {
-      return undefined;
-    }
-
-    return wallet;
-  }
-
   return getActiveWallet(userId);
+}
+
+/*
+|--------------------------------------------------------------------------
+| Get Wallet By ID
+|--------------------------------------------------------------------------
+|
+| New explicit helper for code that needs a specific wallet.
+|--------------------------------------------------------------------------
+*/
+
+export function getWalletById(
+  userId: number,
+  walletId: string,
+): StoredWallet | undefined {
+  return getStoredWallet(
+    userId,
+    walletId,
+  );
 }
 
 /*
@@ -257,16 +252,8 @@ export function importPrivateKey(
       privateKey,
     );
 
-  let wallet: Wallet;
-
-  try {
-    wallet =
-      new Wallet(key);
-  } catch {
-    throw new Error(
-      "Unable to import private key",
-    );
-  }
+  const wallet =
+    new Wallet(key);
 
   const stored =
     makeStoredWallet(
@@ -281,6 +268,85 @@ export function importPrivateKey(
   addWallet(stored);
 
   return stored;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Generic Wallet Import
+|--------------------------------------------------------------------------
+|
+| Supports both:
+|
+| importWallet(userId, secret)
+|
+| and:
+|
+| importWallet(userId, name, secret)
+|
+| This fixes older bot code that only supplies
+| userId + privateKey.
+|--------------------------------------------------------------------------
+*/
+
+export function importWallet(
+  userId: number,
+  secretOrName: string,
+  maybeSecret?: string,
+): StoredWallet {
+  let name: string;
+  let secret: string;
+
+  if (
+    maybeSecret === undefined
+  ) {
+    name = "Imported";
+    secret = secretOrName;
+  } else {
+    name = secretOrName;
+    secret = maybeSecret;
+  }
+
+  const normalized =
+    String(secret ?? "")
+      .trim()
+      .replace(/\s+/g, " ");
+
+  if (!normalized) {
+    throw new Error(
+      "Wallet secret is required",
+    );
+  }
+
+  const words =
+    normalized.split(" ");
+
+  /*
+   * Seed phrase
+   */
+
+  if (
+    words.length === 12 ||
+    words.length === 15 ||
+    words.length === 18 ||
+    words.length === 21 ||
+    words.length === 24
+  ) {
+    return importSeedPhrase(
+      userId,
+      name,
+      normalized,
+    );
+  }
+
+  /*
+   * Private key
+   */
+
+  return importPrivateKey(
+    userId,
+    name,
+    normalized,
+  );
 }
 
 /*
@@ -301,7 +367,7 @@ export function importSeedPhrase(
     );
 
   const normalized =
-    phrase
+    String(phrase ?? "")
       .trim()
       .replace(/\s+/g, " ");
 
@@ -315,9 +381,7 @@ export function importSeedPhrase(
       18,
       21,
       24,
-    ].includes(
-      words.length,
-    )
+    ].includes(words.length)
   ) {
     throw new Error(
       "Invalid seed phrase",
@@ -354,71 +418,6 @@ export function importSeedPhrase(
 
 /*
 |--------------------------------------------------------------------------
-| Generic Import
-|--------------------------------------------------------------------------
-*/
-
-export function importWallet(
-  userId: number,
-  nameOrSecret: string,
-  secretMaybe?: string,
-): StoredWallet {
-  /*
-   * Supports both:
-   *
-   * importWallet(userId, name, secret)
-   *
-   * and older:
-   *
-   * importWallet(userId, secret)
-   */
-
-  let name: string;
-  let secret: string;
-
-  if (
-    secretMaybe === undefined
-  ) {
-    name = "Imported";
-    secret = nameOrSecret;
-  } else {
-    name = nameOrSecret;
-    secret = secretMaybe;
-  }
-
-  const normalized =
-    secret
-      .trim()
-      .replace(/\s+/g, " ");
-
-  const words =
-    normalized.split(" ");
-
-  if (
-    [
-      12,
-      15,
-      18,
-      21,
-      24,
-    ].includes(words.length)
-  ) {
-    return importSeedPhrase(
-      userId,
-      name,
-      normalized,
-    );
-  }
-
-  return importPrivateKey(
-    userId,
-    name,
-    normalized,
-  );
-}
-
-/*
-|--------------------------------------------------------------------------
 | Wallet List
 |--------------------------------------------------------------------------
 */
@@ -441,12 +440,18 @@ export function getActiveWalletForUser(
   return getActiveWallet(userId);
 }
 
+/*
+|--------------------------------------------------------------------------
+| Switch Active Wallet
+|--------------------------------------------------------------------------
+*/
+
 export function switchActiveWallet(
   userId: number,
   walletId: string,
 ): StoredWallet {
   const wallet =
-    getWallet(
+    getStoredWallet(
       userId,
       walletId,
     );
@@ -481,7 +486,7 @@ export function deleteWallet(
 
 /*
 |--------------------------------------------------------------------------
-| Credentials
+| Wallet Credentials
 |--------------------------------------------------------------------------
 */
 
@@ -490,7 +495,7 @@ export function getWalletCredentials(
   walletId: string,
 ): WalletCredentials {
   const wallet =
-    getWallet(
+    getStoredWallet(
       userId,
       walletId,
     );
@@ -516,6 +521,12 @@ export function getWalletCredentials(
   };
 }
 
+/*
+|--------------------------------------------------------------------------
+| Active Wallet Credentials
+|--------------------------------------------------------------------------
+*/
+
 export function getActiveWalletCredentials(
   userId: number,
 ): WalletCredentials {
@@ -538,6 +549,18 @@ export function getActiveWalletCredentials(
 |--------------------------------------------------------------------------
 | Decrypt Private Key
 |--------------------------------------------------------------------------
+|
+| Supports:
+|
+| decryptPrivateKey(userId)
+|
+| decryptPrivateKey(userId, walletId)
+|
+| IMPORTANT:
+| Never pass the encrypted key here.
+| The function expects a user ID and optionally
+| a wallet ID.
+|--------------------------------------------------------------------------
 */
 
 export function decryptPrivateKey(
@@ -545,10 +568,12 @@ export function decryptPrivateKey(
   walletId?: string,
 ): string {
   const wallet =
-    getWallet(
-      userId,
-      walletId,
-    );
+    walletId
+      ? getStoredWallet(
+          userId,
+          walletId,
+        )
+      : getActiveWallet(userId);
 
   if (!wallet) {
     throw new Error(
@@ -559,38 +584,6 @@ export function decryptPrivateKey(
   return decryptSecret(
     wallet.encryptedPrivateKey,
   );
-}
-
-/*
-|--------------------------------------------------------------------------
-| Find Wallet
-|--------------------------------------------------------------------------
-*/
-
-export function findWalletByAddress(
-  userId: number,
-  address: string,
-): StoredWallet | undefined {
-  const normalized =
-    normalizeAddress(address);
-
-  return getWallets(userId).find(
-    (wallet) =>
-      wallet.address.toLowerCase() ===
-      normalized.toLowerCase(),
-  );
-}
-
-/*
-|--------------------------------------------------------------------------
-| Count
-|--------------------------------------------------------------------------
-*/
-
-export function walletCount(
-  userId: number,
-): number {
-  return getWallets(userId).length;
 }
 
 /*
@@ -649,9 +642,15 @@ export async function getBalance(
     const data =
       (await response.json()) as {
         result?: string;
+        error?: {
+          message?: string;
+        };
       };
 
-    if (!data.result) {
+    if (
+      !data.result ||
+      data.result === "0x"
+    ) {
       return "0.0000";
     }
 
@@ -677,4 +676,44 @@ export async function getBalance(
   } catch {
     return "0.0000";
   }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Get Wallet Address
+|--------------------------------------------------------------------------
+*/
+
+export function getActiveWalletAddress(
+  userId: number,
+): string | undefined {
+  return getActiveWallet(
+    userId,
+  )?.address;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Wallet Existence
+|--------------------------------------------------------------------------
+*/
+
+export function hasWallet(
+  userId: number,
+): boolean {
+  return Boolean(
+    getActiveWallet(userId),
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Wallet Count
+|--------------------------------------------------------------------------
+*/
+
+export function getWalletCount(
+  userId: number,
+): number {
+  return getWallets(userId).length;
 }
