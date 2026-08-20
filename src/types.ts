@@ -103,6 +103,18 @@ export interface PendingTrade {
   expiresAt: number;
 }
 
+export interface TradePreferences {
+  userId: number;
+  activeWalletId?: string;
+  defaultBuyEth: string;
+  defaultSellPercent: number;
+  slippage: number;
+  gasMode: "AUTO" | "FAST" | "CUSTOM";
+  mevProtection: boolean;
+  confirmationMode: "ALWAYS" | "SMART" | "OFF";
+  updatedAt: number;
+}
+
 export interface ConfirmationTrade {
   userId: number;
 
@@ -144,6 +156,9 @@ export interface Token {
    */
 
   priceUsd?: number;
+
+  /** Compatibility alias used by bot presentation and market helpers. */
+  price?: number;
 
   marketCap?: number;
 

@@ -46,7 +46,7 @@ ${reason}
 ━━━━━━━━━━━━━━━━
 
 Price
-$${token.price}
+$${token.price ?? token.priceUsd ?? 0}
 `;
 
   for (const userId of subscribers) {

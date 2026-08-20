@@ -27,5 +27,5 @@ export async function getPrice(
 ): Promise<number> {
   const token = await getToken(address);
 
-  return token?.price ?? 0;
+  return token?.price ?? token?.priceUsd ?? 0;
 }

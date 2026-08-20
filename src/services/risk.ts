@@ -23,7 +23,7 @@ export function evaluateToken(
     );
   }
 
-  if (token.marketCap < 10_000) {
+  if ((token.marketCap ?? 0) < 10_000) {
     reasons.push(
       "Market cap too low",
     );

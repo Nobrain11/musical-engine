@@ -20,7 +20,7 @@ import {
   addWallet,
   createWalletId,
   getActiveWallet,
-  getWallet,
+  getWallet as getStoredWallet,
   getWallets,
   removeWallet,
   setActiveWallet,
@@ -386,7 +386,7 @@ export function switchActiveWallet(
   walletId: string,
 ): StoredWallet {
   const wallet =
-    getWallet(
+    getStoredWallet(
       userId,
       walletId,
     );
@@ -430,7 +430,7 @@ export function getWalletCredentials(
   walletId: string,
 ): WalletCredentials {
   const wallet =
-    getWallet(
+    getStoredWallet(
       userId,
       walletId,
     );
@@ -482,16 +482,47 @@ export function getActiveWalletCredentials(
 |--------------------------------------------------------------------------
 */
 
+type ConfirmationInput = {
+  userId: number;
+  tokenAddress: string;
+  symbol: string;
+  side: "BUY" | "SELL";
+  amountEth: number;
+  slippage: number;
+  expiresAt: number;
+};
+
+const pendingConfirmations = new Map<number, ConfirmationInput>();
+
+export function createConfirmation(input: ConfirmationInput): ConfirmationInput {
+  pendingConfirmations.set(input.userId, input);
+  return input;
+}
+
+export function getConfirmation(userId: number): ConfirmationInput | undefined {
+  const confirmation = pendingConfirmations.get(userId);
+  if (confirmation && confirmation.expiresAt < Date.now()) {
+    pendingConfirmations.delete(userId);
+    return undefined;
+  }
+  return confirmation;
+}
+
+export function removeConfirmation(userId: number): ConfirmationInput | undefined {
+  const confirmation = getConfirmation(userId);
+  pendingConfirmations.delete(userId);
+  return confirmation;
+}
+
 export function decryptPrivateKey(
   userId: number,
   walletId?: string,
 ): string {
   const wallet =
     walletId
-      ? getWallet(
-          userId,
-          walletId,
-        )
+  ? getWallet(
+  userId,
+  )
       : getActiveWallet(
           userId,
         );

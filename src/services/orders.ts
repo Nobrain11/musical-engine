@@ -66,6 +66,9 @@ export function createOrder(
     type:
       params.type,
 
+    amount:
+      String(params.amount),
+
     amountEth:
       numberValue(
         params.amount,

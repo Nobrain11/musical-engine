@@ -42,8 +42,8 @@ export function removePosition(
 export function calculatePnL(
   position: Position,
 ): number {
-  return (
-    Number(position.currentValueEth) -
-    Number(position.investedEth)
-  );
+  const currentValue = position.currentPrice ?? 0;
+  const investedValue = position.entryPrice * Number(position.amount);
+
+  return currentValue * Number(position.amount) - investedValue;
 }

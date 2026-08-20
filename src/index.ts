@@ -472,7 +472,7 @@ No open positions.`,
 
 Entry: ${position.entryPrice}
 Current: ${position.currentPrice}
-PnL: ${percent(position.pnlPercent)}`,
+PnL: ${percent(position.pnlPercent ?? 0)}`,
       );
 
     await ctx.reply(
@@ -1016,7 +1016,7 @@ ${positions
   .map(
     (position) =>
       `• <b>${position.symbol}</b>
-PnL: ${percent(position.pnlPercent)}`,
+PnL: ${percent(position.pnlPercent ?? 0)}`,
   )
   .join("\n\n")}`,
       {
@@ -1620,7 +1620,7 @@ bot.action(
         "BUY",
 
       amountEth:
-        amount,
+        Number(amount),
 
       slippage,
 
@@ -1821,13 +1821,13 @@ Price
 $${token.price}
 
 Market Cap
-${money(token.marketCap)}
+${money(token.marketCap ?? 0)}
 
 Liquidity
 ${money(token.liquidity)}
 
 24H Volume
-${money(token.volume24h)}
+${money(token.volume24h ?? 0)}
 
 ━━━━━━━━━━━━━━━━
 
