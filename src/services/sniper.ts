@@ -2,20 +2,8 @@ import {
   SniperConfig,
 } from "../types";
 
-/*
-|--------------------------------------------------------------------------
-| In-memory sniper configuration
-|--------------------------------------------------------------------------
-*/
-
 const sniperConfigs =
   new Map<number, SniperConfig>();
-
-/*
-|--------------------------------------------------------------------------
-| Environment helper
-|--------------------------------------------------------------------------
-*/
 
 function numberEnv(
   name: string,
@@ -38,12 +26,6 @@ function numberEnv(
     ? parsed
     : fallback;
 }
-
-/*
-|--------------------------------------------------------------------------
-| Default configuration
-|--------------------------------------------------------------------------
-*/
 
 function defaultSniperConfig(): SniperConfig {
   return {
@@ -111,21 +93,15 @@ function defaultSniperConfig(): SniperConfig {
   };
 }
 
-/*
-|--------------------------------------------------------------------------
-| Get configuration
-|--------------------------------------------------------------------------
-*/
-
 export function getSniperConfig(
   userId: number,
 ): SniperConfig {
-  const existing =
+  const config =
     sniperConfigs.get(userId);
 
-  if (existing) {
+  if (config) {
     return {
-      ...existing,
+      ...config,
     };
   }
 
@@ -142,12 +118,6 @@ export function getSniperConfig(
   };
 }
 
-/*
-|--------------------------------------------------------------------------
-| Update configuration
-|--------------------------------------------------------------------------
-*/
-
 export function setSniperConfig(
   userId: number,
   updates: Partial<SniperConfig>,
@@ -156,8 +126,6 @@ export function setSniperConfig(
     getSniperConfig(userId);
 
   const updated: SniperConfig = {
-    ...current,
-
     enabled:
       updates.enabled ??
       current.enabled,
@@ -239,12 +207,6 @@ export function setSniperConfig(
   };
 }
 
-/*
-|--------------------------------------------------------------------------
-| Start
-|--------------------------------------------------------------------------
-*/
-
 export function startSniper(
   userId: number,
 ): SniperConfig {
@@ -255,12 +217,6 @@ export function startSniper(
     },
   );
 }
-
-/*
-|--------------------------------------------------------------------------
-| Stop
-|--------------------------------------------------------------------------
-*/
 
 export function stopSniper(
   userId: number,
@@ -273,12 +229,6 @@ export function stopSniper(
   );
 }
 
-/*
-|--------------------------------------------------------------------------
-| Enabled check
-|--------------------------------------------------------------------------
-*/
-
 export function isSniperEnabled(
   userId: number,
 ): boolean {
@@ -287,12 +237,6 @@ export function isSniperEnabled(
   ).enabled;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Trade eligibility
-|--------------------------------------------------------------------------
-*/
-
 export function canSniperTrade(
   userId: number,
   score: number,
@@ -300,60 +244,19 @@ export function canSniperTrade(
   liquidity: number,
   marketCap: number,
 ): boolean {
-  const config =
-    getSniperConfig(userId);
-
-  if (!config.enabled) {
-    return false;
-  }
-
-  if (
-    score <
-    config.minScore
-  ) {
-    return false;
-  }
-
-  if (
-    risk >
-    config.maxRisk
-  ) {
-    return false;
-  }
-
-  if (
-    liquidity <
-    config.minLiquidity
-  ) {
-    return false;
-  }
-
-  if (
-    marketCap >
-    config.maxMarketCap
-  ) {
-    return false;
-  }
-
-  return true;
+  return checkSniperTrade(
+    userId,
+    score,
+    risk,
+    liquidity,
+    marketCap,
+  ).allowed;
 }
-
-/*
-|--------------------------------------------------------------------------
-| Detailed eligibility result
-|--------------------------------------------------------------------------
-*/
 
 export interface SniperCheckResult {
   allowed: boolean;
   reasons: string[];
 }
-
-/*
-|--------------------------------------------------------------------------
-| Explain why a token passed/failed
-|--------------------------------------------------------------------------
-*/
 
 export function checkSniperTrade(
   userId: number,
@@ -417,12 +320,6 @@ export function checkSniperTrade(
   };
 }
 
-/*
-|--------------------------------------------------------------------------
-| Reset configuration
-|--------------------------------------------------------------------------
-*/
-
 export function resetSniperConfig(
   userId: number,
 ): SniperConfig {
@@ -438,12 +335,6 @@ export function resetSniperConfig(
     ...config,
   };
 }
-
-/*
-|--------------------------------------------------------------------------
-| Remove user configuration
-|--------------------------------------------------------------------------
-*/
 
 export function removeSniperConfig(
   userId: number,
