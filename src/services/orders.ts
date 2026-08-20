@@ -1,5 +1,3 @@
-// src/services/orders.ts
-
 import {
   randomUUID,
 } from "crypto";
@@ -8,7 +6,6 @@ import {
   Order,
   OrderType,
   TradeSide,
-  TradeStatus,
 } from "../types";
 
 const orders =
@@ -17,6 +14,24 @@ const orders =
     Order[]
   >();
 
+function numberValue(
+  value: string | number | undefined,
+): number | undefined {
+  if (
+    value === undefined ||
+    value === ""
+  ) {
+    return undefined;
+  }
+
+  const parsed =
+    Number(value);
+
+  return Number.isFinite(parsed)
+    ? parsed
+    : undefined;
+}
+
 export function createOrder(
   userId: number,
   params: {
@@ -24,13 +39,15 @@ export function createOrder(
     symbol: string;
     side: TradeSide;
     type: OrderType;
-    amount: string;
-    price?: string;
-    stopPrice?: string;
+    amount: string | number;
+    price?: string | number;
+    stopPrice?: string | number;
+    limitPrice?: string | number;
+    expiresAt?: number;
   },
 ): Order {
   const now =
-    new Date();
+    Date.now();
 
   const order: Order = {
     id: randomUUID(),
@@ -49,31 +66,41 @@ export function createOrder(
     type:
       params.type,
 
-    amount:
-      params.amount,
+    amountEth:
+      numberValue(
+        params.amount,
+      ),
 
     price:
-      params.price,
+      numberValue(
+        params.price,
+      ),
 
     stopPrice:
-      params.stopPrice,
+      numberValue(
+        params.stopPrice,
+      ),
+
+    limitPrice:
+      numberValue(
+        params.limitPrice,
+      ),
 
     status:
-      "OPEN",
+      "PENDING",
 
-    createdAt:
-      now,
+    createdAt: now,
 
-    updatedAt:
-      now,
+    updatedAt: now,
+
+    expiresAt:
+      params.expiresAt,
   };
 
   const userOrders =
     orders.get(userId) ?? [];
 
-  userOrders.push(
-    order,
-  );
+  userOrders.push(order);
 
   orders.set(
     userId,
@@ -134,7 +161,7 @@ export function updateOrder(
     updates,
     {
       updatedAt:
-        new Date(),
+        Date.now(),
     },
   );
 
@@ -196,6 +223,25 @@ export function markOrderFailed(
     {
       status:
         "FAILED",
+    },
+  );
+}
+
+export function markOrderCompleted(
+  userId: number,
+  orderId: string,
+  txHash?: string,
+): Order | undefined {
+  return updateOrder(
+    userId,
+    orderId,
+    {
+      status:
+        "COMPLETED",
+
+      ...(txHash
+        ? { txHash }
+        : {}),
     },
   );
 }
