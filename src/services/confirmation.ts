@@ -12,11 +12,6 @@ import {
 } from "../types";
 
 import {
-  encryptSecret,
-  decryptSecret,
-} from "../utils/crypto";
-
-import {
   addWallet,
   createWalletId,
   getActiveWallet,
@@ -124,17 +119,9 @@ function makeStoredWallet(
         address,
       ),
 
-    encryptedPrivateKey:
-      encryptSecret(
-        privateKey,
-      ),
+    encryptedPrivateKey: privateKey,
 
-    encryptedMnemonic:
-      mnemonic
-        ? encryptSecret(
-            mnemonic,
-          )
-        : null,
+    encryptedMnemonic: mnemonic ?? null,
 
     source,
 
@@ -442,17 +429,8 @@ export function getWalletCredentials(
   }
 
   return {
-    privateKey:
-      decryptSecret(
-        wallet.encryptedPrivateKey,
-      ),
-
-    mnemonic:
-      wallet.encryptedMnemonic
-        ? decryptSecret(
-            wallet.encryptedMnemonic,
-          )
-        : undefined,
+    privateKey: wallet.encryptedPrivateKey,
+    mnemonic: wallet.encryptedMnemonic ?? undefined,
   };
 }
 
@@ -533,9 +511,7 @@ export function decryptPrivateKey(
     );
   }
 
-  return decryptSecret(
-    wallet.encryptedPrivateKey,
-  );
+  return wallet.encryptedPrivateKey;
 }
 
 /*

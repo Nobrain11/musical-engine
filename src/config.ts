@@ -37,11 +37,6 @@ export const config = {
       process.env.PRIORITY_FEE || "fast",
   },
 
-  security: {
-    encryptionKey:
-      process.env.WALLET_ENCRYPTION_KEY || "",
-  },
-
   app: {
     environment:
       process.env.NODE_ENV || "development",
