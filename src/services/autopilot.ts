@@ -25,11 +25,21 @@ function envNumber(
   const parsed =
     Number(value);
 
-  return Number.isFinite(
-    parsed,
-  )
+  return Number.isFinite(parsed)
     ? parsed
     : fallback;
+}
+
+function cloneConfig(
+  config: AutopilotConfig,
+): AutopilotConfig {
+  return {
+    ...config,
+
+    takeProfitLevels: [
+      ...config.takeProfitLevels,
+    ],
+  };
 }
 
 function defaultConfig(): AutopilotConfig {
@@ -121,12 +131,9 @@ export function getAutopilotConfig(
     configs.get(userId);
 
   if (existing) {
-    return {
-      ...existing,
-      takeProfitLevels: [
-        ...existing.takeProfitLevels,
-      ],
-    };
+    return cloneConfig(
+      existing,
+    );
   }
 
   const created =
@@ -137,12 +144,9 @@ export function getAutopilotConfig(
     created,
   );
 
-  return {
-    ...created,
-    takeProfitLevels: [
-      ...created.takeProfitLevels,
-    ],
-  };
+  return cloneConfig(
+    created,
+  );
 }
 
 export function setAutopilotConfig(
@@ -196,8 +200,7 @@ export function setAutopilotConfig(
     slippage:
       Number(
         updates.slippage ??
-        current.slippage ??
-        1,
+        current.slippage,
       ),
 
     stopLossPercent:
@@ -213,8 +216,15 @@ export function setAutopilotConfig(
       ),
 
     takeProfitLevels:
-      updates.takeProfitLevels ??
-      current.takeProfitLevels,
+      Array.isArray(
+        updates.takeProfitLevels,
+      )
+        ? updates.takeProfitLevels.map(
+            Number,
+          )
+        : [
+            ...current.takeProfitLevels,
+          ],
 
     requireSimulation:
       updates.requireSimulation ??
@@ -227,15 +237,13 @@ export function setAutopilotConfig(
     maxDailyLossPercent:
       Number(
         updates.maxDailyLossPercent ??
-        current.maxDailyLossPercent ??
-        10,
+        current.maxDailyLossPercent,
       ),
 
     cooldownSeconds:
       Number(
         updates.cooldownSeconds ??
-        current.cooldownSeconds ??
-        30,
+        current.cooldownSeconds,
       ),
   };
 
@@ -244,12 +252,9 @@ export function setAutopilotConfig(
     updated,
   );
 
-  return {
-    ...updated,
-    takeProfitLevels: [
-      ...updated.takeProfitLevels,
-    ],
-  };
+  return cloneConfig(
+    updated,
+  );
 }
 
 export function enableAutopilot(
@@ -323,4 +328,28 @@ export function canAutopilotTrade(
   }
 
   return true;
+}
+
+export function resetAutopilotConfig(
+  userId: number,
+): AutopilotConfig {
+  const config =
+    defaultConfig();
+
+  configs.set(
+    userId,
+    config,
+  );
+
+  return cloneConfig(
+    config,
+  );
+}
+
+export function removeAutopilotConfig(
+  userId: number,
+): boolean {
+  return configs.delete(
+    userId,
+  );
 }
