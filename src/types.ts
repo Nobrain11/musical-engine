@@ -35,6 +35,7 @@ export type TradeSide =
   | "SELL";
 
 export type TradeStatus =
+  | "OPEN"
   | "PENDING"
   | "CONFIRMING"
   | "EXECUTING"
@@ -86,12 +87,18 @@ export interface Token {
   score?: number;
   risk?: number;
 
-  buyPressure?: number;
+  // Compatibility / scanner fields.
+  riskScore: number;
+  momentumScore: number;
+  smartMoneyScore: number;
+  liquidityScore: number;
+  buyPressure: number;
 }
 
 export interface Order {
   id: string;
   userId: number;
+
   tokenAddress: string;
   symbol?: string;
 
