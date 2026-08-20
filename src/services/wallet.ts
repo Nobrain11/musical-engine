@@ -6,9 +6,9 @@ import {
 } from "ethers";
 
 import {
+  CreatedWallet,
   StoredWallet,
   WalletCredentials,
-  WalletSource,
 } from "../types";
 
 import {
@@ -29,29 +29,6 @@ import {
 
 /*
 |--------------------------------------------------------------------------
-| Types
-|--------------------------------------------------------------------------
-*/
-
-export interface CreatedWallet {
-  wallet: StoredWallet;
-  address: string;
-  privateKey: string;
-  mnemonic?: string;
-  credentials: WalletCredentials;
-}
-
-export interface WalletListItem {
-  id: string;
-  name: string;
-  address: string;
-  source: WalletSource;
-  active: boolean;
-  createdAt: number;
-}
-
-/*
-|--------------------------------------------------------------------------
 | Helpers
 |--------------------------------------------------------------------------
 */
@@ -59,25 +36,24 @@ export interface WalletListItem {
 function normalizeName(
   name: string,
 ): string {
-  const normalized =
-    String(name ?? "").trim();
+  const value = name.trim();
 
-  if (!normalized) {
+  if (!value) {
     throw new Error(
       "Wallet name is required",
     );
   }
 
-  if (normalized.length > 32) {
+  if (value.length > 32) {
     throw new Error(
-      "Wallet name must be 32 characters or less",
+      "Wallet name cannot exceed 32 characters",
     );
   }
 
-  return normalized;
+  return value;
 }
 
-function ensureUniqueName(
+function uniqueName(
   userId: number,
   name: string,
 ): string {
@@ -98,11 +74,28 @@ function ensureUniqueName(
   return normalized;
 }
 
+function normalizePrivateKey(
+  privateKey: string,
+): string {
+  const key = privateKey.trim();
+
+  if (
+    !/^0x[0-9a-fA-F]{64}$/.test(
+      key,
+    )
+  ) {
+    throw new Error(
+      "Invalid private key",
+    );
+  }
+
+  return key;
+}
+
 function normalizeAddress(
   address: string,
 ): string {
-  const value =
-    String(address ?? "").trim();
+  const value = address.trim();
 
   if (!isAddress(value)) {
     throw new Error(
@@ -113,102 +106,47 @@ function normalizeAddress(
   return getAddress(value);
 }
 
-function normalizePrivateKey(
-  privateKey: string,
-): string {
-  const value =
-    String(privateKey ?? "").trim();
-
-  if (
-    !/^0x[0-9a-fA-F]{64}$/.test(
-      value,
-    )
-  ) {
-    throw new Error(
-      "Invalid private key",
-    );
-  }
-
-  return value;
-}
-
-function normalizeSeedPhrase(
-  phrase: string,
-): string {
-  const normalized =
-    String(phrase ?? "")
-      .trim()
-      .replace(/\s+/g, " ");
-
-  const words =
-    normalized
-      ? normalized.split(" ")
-      : [];
-
-  const validLength =
-    words.length === 12 ||
-    words.length === 15 ||
-    words.length === 18 ||
-    words.length === 21 ||
-    words.length === 24;
-
-  if (!validLength) {
-    throw new Error(
-      "Seed phrase must contain 12, 15, 18, 21 or 24 words",
-    );
-  }
-
-  return normalized;
-}
-
-function buildStoredWallet(
+function makeStoredWallet(
   userId: number,
   name: string,
   address: string,
   privateKey: string,
   mnemonic: string | undefined,
-  source: WalletSource,
+  source:
+    | "GENERATED"
+    | "PRIVATE_KEY"
+    | "SEED_PHRASE",
 ): StoredWallet {
-  const now =
-    Date.now();
+  const now = Date.now();
 
   return {
-    id:
-      createWalletId(),
+    id: createWalletId(),
 
     userId,
 
-    name:
-      normalizeName(name),
+    name,
 
     address:
       normalizeAddress(address),
 
     encryptedPrivateKey:
-      encryptSecret(
-        privateKey,
-      ),
+      encryptSecret(privateKey),
 
     encryptedMnemonic:
       mnemonic
-        ? encryptSecret(
-            mnemonic,
-          )
+        ? encryptSecret(mnemonic)
         : null,
 
     source,
 
-    createdAt:
-      now,
-
-    updatedAt:
-      now,
+    createdAt: now,
+    updatedAt: now,
   };
 }
 
 /*
 |--------------------------------------------------------------------------
-| CREATE WALLET
+| Create Wallet
 |--------------------------------------------------------------------------
 */
 
@@ -217,7 +155,7 @@ export function createWallet(
   name = "Main",
 ): CreatedWallet {
   const walletName =
-    ensureUniqueName(
+    uniqueName(
       userId,
       name,
     );
@@ -231,14 +169,8 @@ export function createWallet(
   const mnemonic =
     wallet.mnemonic?.phrase;
 
-  if (!mnemonic) {
-    throw new Error(
-      "Failed to generate wallet seed phrase",
-    );
-  }
-
   const stored =
-    buildStoredWallet(
+    makeStoredWallet(
       userId,
       walletName,
       wallet.address,
@@ -268,16 +200,14 @@ export function createWallet(
 
 /*
 |--------------------------------------------------------------------------
-| GET WALLET
+| Compatibility getWallet API
 |--------------------------------------------------------------------------
 |
-| Compatibility:
-|
 | getWallet(userId)
-| -> active wallet
+|     -> active wallet
 |
 | getWallet(userId, walletId)
-| -> specific wallet
+|     -> specific wallet
 |--------------------------------------------------------------------------
 */
 
@@ -302,14 +232,12 @@ export function getWallet(
     return wallet;
   }
 
-  return getActiveWallet(
-    userId,
-  );
+  return getActiveWallet(userId);
 }
 
 /*
 |--------------------------------------------------------------------------
-| IMPORT PRIVATE KEY
+| Import Private Key
 |--------------------------------------------------------------------------
 */
 
@@ -319,12 +247,12 @@ export function importPrivateKey(
   privateKey: string,
 ): StoredWallet {
   const walletName =
-    ensureUniqueName(
+    uniqueName(
       userId,
       name,
     );
 
-  const normalizedKey =
+  const key =
     normalizePrivateKey(
       privateKey,
     );
@@ -333,9 +261,7 @@ export function importPrivateKey(
 
   try {
     wallet =
-      new Wallet(
-        normalizedKey,
-      );
+      new Wallet(key);
   } catch {
     throw new Error(
       "Unable to import private key",
@@ -343,7 +269,7 @@ export function importPrivateKey(
   }
 
   const stored =
-    buildStoredWallet(
+    makeStoredWallet(
       userId,
       walletName,
       wallet.address,
@@ -359,7 +285,7 @@ export function importPrivateKey(
 
 /*
 |--------------------------------------------------------------------------
-| IMPORT SEED PHRASE
+| Import Seed Phrase
 |--------------------------------------------------------------------------
 */
 
@@ -369,22 +295,41 @@ export function importSeedPhrase(
   phrase: string,
 ): StoredWallet {
   const walletName =
-    ensureUniqueName(
+    uniqueName(
       userId,
       name,
     );
 
-  const normalizedPhrase =
-    normalizeSeedPhrase(
-      phrase,
+  const normalized =
+    phrase
+      .trim()
+      .replace(/\s+/g, " ");
+
+  const words =
+    normalized.split(" ");
+
+  if (
+    ![
+      12,
+      15,
+      18,
+      21,
+      24,
+    ].includes(
+      words.length,
+    )
+  ) {
+    throw new Error(
+      "Invalid seed phrase",
     );
+  }
 
   let wallet: HDNodeWallet;
 
   try {
     wallet =
       HDNodeWallet.fromPhrase(
-        normalizedPhrase,
+        normalized,
       );
   } catch {
     throw new Error(
@@ -393,12 +338,12 @@ export function importSeedPhrase(
   }
 
   const stored =
-    buildStoredWallet(
+    makeStoredWallet(
       userId,
       walletName,
       wallet.address,
       wallet.privateKey,
-      normalizedPhrase,
+      normalized,
       "SEED_PHRASE",
     );
 
@@ -409,43 +354,55 @@ export function importSeedPhrase(
 
 /*
 |--------------------------------------------------------------------------
-| GENERIC IMPORT
-|--------------------------------------------------------------------------
-|
-| Automatically detects:
-|
-| 12/15/18/21/24 words -> seed phrase
-| 0x + 64 hex chars -> private key
+| Generic Import
 |--------------------------------------------------------------------------
 */
 
 export function importWallet(
   userId: number,
-  name: string,
-  secret: string,
+  nameOrSecret: string,
+  secretMaybe?: string,
 ): StoredWallet {
+  /*
+   * Supports both:
+   *
+   * importWallet(userId, name, secret)
+   *
+   * and older:
+   *
+   * importWallet(userId, secret)
+   */
+
+  let name: string;
+  let secret: string;
+
+  if (
+    secretMaybe === undefined
+  ) {
+    name = "Imported";
+    secret = nameOrSecret;
+  } else {
+    name = nameOrSecret;
+    secret = secretMaybe;
+  }
+
   const normalized =
-    String(secret ?? "")
+    secret
       .trim()
       .replace(/\s+/g, " ");
-
-  if (!normalized) {
-    throw new Error(
-      "Wallet import data is required",
-    );
-  }
 
   const words =
     normalized.split(" ");
 
-  const looksLikeSeed =
-    words.length === 12 ||
-    words.length === 15 ||
-    words.length === 18 ||
-    words.length === 21 ||
-    words.length === 24;
-
-  if (looksLikeSeed) {
+  if (
+    [
+      12,
+      15,
+      18,
+      21,
+      24,
+    ].includes(words.length)
+  ) {
     return importSeedPhrase(
       userId,
       name,
@@ -462,77 +419,27 @@ export function importWallet(
 
 /*
 |--------------------------------------------------------------------------
-| WALLET LIST
+| Wallet List
 |--------------------------------------------------------------------------
 */
 
 export function listWallets(
   userId: number,
-): WalletListItem[] {
-  const active =
-    getActiveWallet(
-      userId,
-    );
-
-  return getWallets(
-    userId,
-  ).map(
-    (wallet) => ({
-      id:
-        wallet.id,
-
-      name:
-        wallet.name,
-
-      address:
-        wallet.address,
-
-      source:
-        wallet.source,
-
-      active:
-        wallet.id ===
-        active?.id,
-
-      createdAt:
-        wallet.createdAt,
-    }),
-  );
-}
-
-/*
-|--------------------------------------------------------------------------
-| GET ALL STORED WALLETS
-|--------------------------------------------------------------------------
-*/
-
-export function getAllWallets(
-  userId: number,
 ): StoredWallet[] {
-  return getWallets(
-    userId,
-  );
+  return getWallets(userId);
 }
 
 /*
 |--------------------------------------------------------------------------
-| ACTIVE WALLET
+| Active Wallet
 |--------------------------------------------------------------------------
 */
 
 export function getActiveWalletForUser(
   userId: number,
 ): StoredWallet | undefined {
-  return getActiveWallet(
-    userId,
-  );
+  return getActiveWallet(userId);
 }
-
-/*
-|--------------------------------------------------------------------------
-| SWITCH ACTIVE WALLET
-|--------------------------------------------------------------------------
-*/
 
 export function switchActiveWallet(
   userId: number,
@@ -558,7 +465,7 @@ export function switchActiveWallet(
 
 /*
 |--------------------------------------------------------------------------
-| DELETE WALLET
+| Delete Wallet
 |--------------------------------------------------------------------------
 */
 
@@ -566,16 +473,6 @@ export function deleteWallet(
   userId: number,
   walletId: string,
 ): boolean {
-  const wallet =
-    getWallet(
-      userId,
-      walletId,
-    );
-
-  if (!wallet) {
-    return false;
-  }
-
   return removeWallet(
     userId,
     walletId,
@@ -584,45 +481,7 @@ export function deleteWallet(
 
 /*
 |--------------------------------------------------------------------------
-| WALLET COUNT
-|--------------------------------------------------------------------------
-*/
-
-export function walletCount(
-  userId: number,
-): number {
-  return getWallets(
-    userId,
-  ).length;
-}
-
-/*
-|--------------------------------------------------------------------------
-| FIND WALLET BY ADDRESS
-|--------------------------------------------------------------------------
-*/
-
-export function findWalletByAddress(
-  userId: number,
-  address: string,
-): StoredWallet | undefined {
-  const normalized =
-    normalizeAddress(
-      address,
-    );
-
-  return getWallets(
-    userId,
-  ).find(
-    (wallet) =>
-      wallet.address.toLowerCase() ===
-      normalized.toLowerCase(),
-  );
-}
-
-/*
-|--------------------------------------------------------------------------
-| GET WALLET CREDENTIALS
+| Credentials
 |--------------------------------------------------------------------------
 */
 
@@ -657,19 +516,11 @@ export function getWalletCredentials(
   };
 }
 
-/*
-|--------------------------------------------------------------------------
-| ACTIVE WALLET CREDENTIALS
-|--------------------------------------------------------------------------
-*/
-
 export function getActiveWalletCredentials(
   userId: number,
 ): WalletCredentials {
   const wallet =
-    getActiveWallet(
-      userId,
-    );
+    getActiveWallet(userId);
 
   if (!wallet) {
     throw new Error(
@@ -685,10 +536,7 @@ export function getActiveWalletCredentials(
 
 /*
 |--------------------------------------------------------------------------
-| DECRYPT PRIVATE KEY
-|--------------------------------------------------------------------------
-|
-| Compatibility API used by execution.ts
+| Decrypt Private Key
 |--------------------------------------------------------------------------
 */
 
@@ -697,14 +545,10 @@ export function decryptPrivateKey(
   walletId?: string,
 ): string {
   const wallet =
-    walletId
-      ? getWallet(
-          userId,
-          walletId,
-        )
-      : getActiveWallet(
-          userId,
-        );
+    getWallet(
+      userId,
+      walletId,
+    );
 
   if (!wallet) {
     throw new Error(
@@ -719,41 +563,39 @@ export function decryptPrivateKey(
 
 /*
 |--------------------------------------------------------------------------
-| EXPORT WALLET
-|--------------------------------------------------------------------------
-|
-| Returns credentials only after explicitly requesting
-| the wallet.
+| Find Wallet
 |--------------------------------------------------------------------------
 */
 
-export function exportWallet(
+export function findWalletByAddress(
   userId: number,
-  walletId: string,
-): WalletCredentials {
-  return getWalletCredentials(
-    userId,
-    walletId,
+  address: string,
+): StoredWallet | undefined {
+  const normalized =
+    normalizeAddress(address);
+
+  return getWallets(userId).find(
+    (wallet) =>
+      wallet.address.toLowerCase() ===
+      normalized.toLowerCase(),
   );
 }
 
 /*
 |--------------------------------------------------------------------------
-| EXPORT ACTIVE WALLET
+| Count
 |--------------------------------------------------------------------------
 */
 
-export function exportActiveWallet(
+export function walletCount(
   userId: number,
-): WalletCredentials {
-  return getActiveWalletCredentials(
-    userId,
-  );
+): number {
+  return getWallets(userId).length;
 }
 
 /*
 |--------------------------------------------------------------------------
-| WALLET BALANCE
+| Balance
 |--------------------------------------------------------------------------
 */
 
@@ -761,9 +603,7 @@ export async function getBalance(
   userId: number,
 ): Promise<string> {
   const wallet =
-    getActiveWallet(
-      userId,
-    );
+    getActiveWallet(userId);
 
   if (!wallet) {
     return "0.0000";
@@ -811,18 +651,12 @@ export async function getBalance(
         result?: string;
       };
 
-    if (
-      !data.result ||
-      typeof data.result !==
-        "string"
-    ) {
+    if (!data.result) {
       return "0.0000";
     }
 
     const wei =
-      BigInt(
-        data.result,
-      );
+      BigInt(data.result);
 
     const base =
       1_000_000_000_000_000_000n;
@@ -836,35 +670,11 @@ export async function getBalance(
     const decimals =
       remainder
         .toString()
-        .padStart(
-          18,
-          "0",
-        )
-        .slice(
-          0,
-          4,
-        );
+        .padStart(18, "0")
+        .slice(0, 4);
 
     return `${whole}.${decimals}`;
   } catch {
     return "0.0000";
-  }
-}
-
-/*
-|--------------------------------------------------------------------------
-| VALIDATE WALLET
-|--------------------------------------------------------------------------
-*/
-
-export function isWalletAddress(
-  address: string,
-): boolean {
-  try {
-    return isAddress(
-      address.trim(),
-    );
-  } catch {
-    return false;
   }
 }
