@@ -1,16 +1,26 @@
-import { Token } from "../types";
+import {
+  Token,
+} from "../types";
 
 export interface TradeRequest {
-  side: "BUY" | "SELL";
+  side:
+    | "BUY"
+    | "SELL";
+
   token: Token;
+
   amountEth: number;
+
   slippage: number;
 }
 
 export interface TradeGuardResult {
   approved: boolean;
+
   score: number;
+
   reasons: string[];
+
   warnings: string[];
 }
 
@@ -28,23 +38,39 @@ export function evaluateTrade(
 
   let score = 100;
 
-  // Contract / token risk
-  score -= token.riskScore * 0.25;
+  /*
+   * Risk
+   */
 
-  if (token.riskScore > 60) {
+  score -=
+    token.riskScore * 0.25;
+
+  if (
+    token.riskScore > 60
+  ) {
     warnings.push(
       "Token risk is elevated",
     );
   }
 
-  // Liquidity protection
-  if (token.liquidity < 25_000) {
+  /*
+   * Liquidity
+   */
+
+  const liquidity =
+    token.liquidity ?? 0;
+
+  if (
+    liquidity < 25_000
+  ) {
     score -= 25;
 
     reasons.push(
       "Liquidity is too low",
     );
-  } else if (token.liquidity < 100_000) {
+  } else if (
+    liquidity < 100_000
+  ) {
     score -= 10;
 
     warnings.push(
@@ -52,8 +78,13 @@ export function evaluateTrade(
     );
   }
 
-  // Market momentum
-  if (token.momentumScore < 50) {
+  /*
+   * Momentum
+   */
+
+  if (
+    token.momentumScore < 50
+  ) {
     score -= 20;
 
     warnings.push(
@@ -61,8 +92,13 @@ export function evaluateTrade(
     );
   }
 
-  // Smart money
-  if (token.smartMoneyScore < 40) {
+  /*
+   * Smart money
+   */
+
+  if (
+    token.smartMoneyScore < 40
+  ) {
     score -= 10;
 
     warnings.push(
@@ -70,7 +106,10 @@ export function evaluateTrade(
     );
   }
 
-  // Buy pressure
+  /*
+   * Buy pressure
+   */
+
   if (
     request.side === "BUY" &&
     token.buyPressure < 40
@@ -82,25 +121,34 @@ export function evaluateTrade(
     );
   }
 
-  // Slippage
-  if (slippage > 5) {
+  /*
+   * Slippage
+   */
+
+  if (
+    slippage > 5
+  ) {
     score -= 15;
 
     reasons.push(
       "Slippage exceeds safe limit",
     );
-  }
-
-  if (slippage > 2) {
+  } else if (
+    slippage > 2
+  ) {
     warnings.push(
       "High slippage configured",
     );
   }
 
-  // Trade size
+  /*
+   * Trade size
+   */
+
   if (
+    liquidity > 0 &&
     amountEth >
-    token.liquidity * 0.01
+      liquidity * 0.01
   ) {
     score -= 20;
 
@@ -109,10 +157,14 @@ export function evaluateTrade(
     );
   }
 
-  score = Math.max(
-    0,
-    Math.min(100, Math.round(score)),
-  );
+  score =
+    Math.max(
+      0,
+      Math.min(
+        100,
+        Math.round(score),
+      ),
+    );
 
   const approved =
     score >= 70 &&
@@ -120,8 +172,11 @@ export function evaluateTrade(
 
   return {
     approved,
+
     score,
+
     reasons,
+
     warnings,
   };
 }
