@@ -24,8 +24,11 @@ import {
 
 export interface ExecutionResult {
   success: boolean;
+
   txHash?: string;
+
   guard: TradeGuardResult;
+
   error?: string;
 }
 
@@ -39,14 +42,20 @@ export async function executeTrade(
    */
 
   const guard =
-    evaluateTrade(request);
+    evaluateTrade(
+      request,
+    );
 
   if (!guard.approved) {
     return {
       success: false,
+
       guard,
+
       error:
-        guard.reasons.join("; "),
+        guard.reasons.join(
+          "; ",
+        ),
     };
   }
 
@@ -61,68 +70,96 @@ export async function executeTrade(
   if (!storedWallet) {
     return {
       success: false,
+
       guard,
-      error: "Wallet not found",
+
+      error:
+        "Wallet not found",
     };
   }
 
   /*
    * STEP 3
-   * Private key is decrypted
-   * only inside execution scope.
+   * Decrypt only inside the
+   * execution scope.
    */
 
-  const privateKey =
-    decryptPrivateKey(
-      storedWallet.encryptedPrivateKey,
-    );
+  let privateKey: string;
 
-  const signer =
-    new EthersWallet(
-      privateKey,
-      provider,
-    );
-
-  /*
-   * STEP 4
-   * The actual swap transaction
-   * will be constructed by the
-   * router layer.
-   */
-
-  const transaction = {
-    to: undefined,
-    value: parseEther(
-      request.amountEth.toString(),
-    ),
-  };
-
-  /*
-   * We intentionally refuse to
-   * broadcast until a real router
-   * transaction has been constructed.
-   */
-
-  const simulation =
-    await simulateTransaction(
-      transaction,
-    );
-
-  if (!simulation.success) {
+  try {
+    privateKey =
+      decryptPrivateKey(
+        userId,
+        storedWallet.id,
+      );
+  } catch {
     return {
       success: false,
+
       guard,
+
       error:
-        simulation.error ??
-        "Transaction simulation failed",
+        "Unable to decrypt wallet credentials",
     };
   }
 
+  /*
+   * STEP 4
+   * Create signer.
+   */
+
+  let signer: EthersWallet;
+
+  try {
+    signer =
+      new EthersWallet(
+        privateKey,
+        provider,
+      );
+  } catch {
+    return {
+      success: false,
+
+      guard,
+
+      error:
+        "Unable to initialize wallet signer",
+    };
+  }
+
+  /*
+   * STEP 5
+   *
+   * The router layer must provide
+   * the actual swap transaction.
+   *
+   * Do not broadcast a transaction
+   * with an undefined destination.
+   */
+
+  const transaction = {
+    value:
+      parseEther(
+        request.amountEth.toString(),
+      ),
+  };
+
+  /*
+   * No router transaction exists yet.
+   *
+   * Simulation of an incomplete
+   * transaction is intentionally
+   * refused.
+   */
+
   void signer;
+  void transaction;
 
   return {
     success: false,
+
     guard,
+
     error:
       "Execution router not configured",
   };
