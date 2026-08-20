@@ -1,4 +1,7 @@
-import { Token } from "../types";
+import {
+  Token,
+} from "../types";
+
 import * as market from "./market";
 
 export interface ScanResult {
@@ -10,33 +13,47 @@ export interface ScanResult {
 export async function analyzeToken(
   address: string,
 ): Promise<ScanResult | null> {
-  const token = await market.getToken(address);
+  const token =
+    await market.getToken(
+      address,
+    );
 
-  if (!token) return null;
+  if (!token) {
+    return null;
+  }
 
-  const score = calculateScore(token);
+  const score =
+    calculateScore(token);
 
   const reasons: string[] = [];
 
-  if (token.momentumScore >= 85) {
+  if (
+    token.momentumScore >= 85
+  ) {
     reasons.push(
       "Strong momentum detected",
     );
   }
 
-  if (token.smartMoneyScore >= 80) {
+  if (
+    token.smartMoneyScore >= 80
+  ) {
     reasons.push(
       "Smart money accumulation detected",
     );
   }
 
-  if (token.liquidityScore >= 80) {
+  if (
+    token.liquidityScore >= 80
+  ) {
     reasons.push(
       "Healthy liquidity",
     );
   }
 
-  if (token.buyPressure >= 70) {
+  if (
+    token.buyPressure >= 70
+  ) {
     reasons.push(
       "Strong buying pressure",
     );
@@ -64,8 +81,12 @@ export async function scanMarket(): Promise<
   ScanResult[]
 > {
   /*
-   * This becomes the main sniper/autopilot scanner.
+   * Market discovery remains
+   * delegated to the market service.
+   *
+   * This function intentionally
+   * returns an empty array until
+   * market discovery is connected.
    */
-
   return [];
 }
